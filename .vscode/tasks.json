@@ -1,0 +1,28 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "func",
+            "label": "func: host start",
+            "command": "host start",
+            "problemMatcher": "$func-dotnet-watch",
+            "isBackground": true,
+            "dependsOn": "build",
+            "options": {
+                "cwd": "${workspaceFolder}/src/HumidityService.FunctionHost"
+            }
+        },
+        {
+            "label": "build",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/HumidityService.FunctionHost/HumidityService.FunctionHost.csproj",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "type": "process",
+            "problemMatcher": "$msCompile"
+        }
+    ]
+}

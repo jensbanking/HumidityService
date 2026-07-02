@@ -14,6 +14,16 @@
 # Azure Functions local settings (may contain secrets/connection strings)
 local.settings.json
 
+# Azurite local storage emulator runtime state
+AzuriteConfig
+__azurite_db_*__.json
+__blobstorage__/
+__queuestorage__/
+__tablestorage__/
+
+# Claude Code personal/local settings (project-shared config lives in settings.json)
+.claude/settings.local.json
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

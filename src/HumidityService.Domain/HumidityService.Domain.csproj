@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>HumidityService.Domain</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    Domain layer: core entities, value objects, and business logic only.
+    Per Clean Architecture rules in claude.md, this project must NOT reference
+    Application, Infrastructure, or FunctionHost, and must have no external
+    package dependencies.
+  -->
+
+</Project>

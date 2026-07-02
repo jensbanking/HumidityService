@@ -11,6 +11,9 @@
 *.sln.docstates
 *.env
 
+# Azure Functions local settings (may contain secrets/connection strings)
+local.settings.json
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

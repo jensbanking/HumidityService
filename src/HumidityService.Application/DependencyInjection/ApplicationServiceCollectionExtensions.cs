@@ -13,6 +13,7 @@ public static class ApplicationServiceCollectionExtensions
     public static IServiceCollection AddHumidityApplication(this IServiceCollection services)
     {
         services.AddScoped<IIndoorClimateIngestionService, IndoorClimateIngestionService>();
+        services.AddScoped<IOutdoorClimateIngestionService, OutdoorClimateIngestionService>();
 
         return services;
     }

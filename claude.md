@@ -84,7 +84,7 @@
 
 ## Technical Features Blueprint
 
-### - [ ] Feature 1: Data Ingestion indoor climate (Azure Function & Storage)
+### - [x] Feature 1: Data Ingestion indoor climate (Azure Function & Storage)
 * Develop a timer-triggered Azure Function running at the top of every hour.
 * Iterate over all configured locations (see Location Configuration); process each location independently so a failure on one does not block the others in the same run.
 * Fetch OAuth tokens from `https://api.danfoss.com/oauth2/token`.
@@ -93,10 +93,10 @@
 * Enforce naming format: `{location}/yyyy/MM/dd/{location}_indoor_yyyy_MM_dd_hour.json`, where `{location}` is the location's `slug`.
 * Fallback to local emulator storage (Azurite) as default configuration.
 
-### - [ ] Feature 2: Expand the Azure function with Outdoor Climate (Azure Function & Storage)
+### - [x] Feature 2: Expand the Azure function with Outdoor Climate (Azure Function & Storage)
 * Fetch meteorological data from Open-Meteo api.
 * Iterate over all configured locations (see Location Configuration); process each location independently so a failure on one does not block the others in the same run.
-* Query specific parameters (`temp_dry,humidity`) filtered by each location's `latitude/longitude`.
+* Query specific parameters (`temperature_2m,relative_humidity_2m`) filtered by each location's `latitude/longitude`.
 * Persist raw JSON responses directly to Azure Blob Storage, one blob per location.
 * Enforce naming format: `{location}/yyyy/MM/dd/{location}_outdoor_yyyy_MM_dd_hour.json`, where `{location}` is the same `slug` used in Feature 1, so indoor and outdoor readings correlate.
 * Fallback to local emulator storage (Azurite) as default configuration.

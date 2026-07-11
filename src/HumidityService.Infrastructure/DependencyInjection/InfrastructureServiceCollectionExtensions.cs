@@ -2,6 +2,7 @@ using Azure.Storage.Blobs;
 using HumidityService.Application.Interfaces;
 using HumidityService.Infrastructure.Configuration;
 using HumidityService.Infrastructure.ExternalApis.Danfoss;
+using HumidityService.Infrastructure.ExternalApis.OpenMeteo;
 using HumidityService.Infrastructure.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,7 @@ public static class InfrastructureServiceCollectionExtensions
     public static IServiceCollection AddHumidityInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<DanfossApiOptions>(configuration.GetSection(DanfossApiOptions.SectionName));
+        services.Configure<OpenMeteoApiOptions>(configuration.GetSection(OpenMeteoApiOptions.SectionName));
         services.Configure<ClimateStorageOptions>(configuration.GetSection(ClimateStorageOptions.SectionName));
 
         services.AddSingleton<ILocationProvider>(sp => new ConfigurationLocationProvider(sp.GetRequiredService<IConfiguration>()));
@@ -40,6 +42,12 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddHttpClient<IDanfossClimateApiClient, DanfossClimateApiClient>((sp, client) =>
             {
                 client.BaseAddress = new Uri(sp.GetRequiredService<IOptions<DanfossApiOptions>>().Value.BaseUrl);
+            })
+            .AddPolicyHandler(GetRetryPolicy());
+
+        services.AddHttpClient<IOpenMeteoApiClient, OpenMeteoApiClient>((sp, client) =>
+            {
+                client.BaseAddress = new Uri(sp.GetRequiredService<IOptions<OpenMeteoApiOptions>>().Value.BaseUrl);
             })
             .AddPolicyHandler(GetRetryPolicy());
 

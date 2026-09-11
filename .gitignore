@@ -440,3 +440,14 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Terraform (state files can contain secrets/connection strings)
+# Note: .terraform.lock.hcl is intentionally NOT ignored - commit it for reproducible provider versions.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log

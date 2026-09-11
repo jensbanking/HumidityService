@@ -18,6 +18,11 @@ output "key_vault_name" {
   value       = azurerm_key_vault.shared.name
 }
 
+output "key_vault_id" {
+  description = "Resource ID of the shared central Key Vault. Used by per-environment configs to scope Key Vault Secrets User role assignments for each Function App's managed identity."
+  value       = azurerm_key_vault.shared.id
+}
+
 output "key_vault_uri" {
   description = "URI of the shared central Key Vault."
   value       = azurerm_key_vault.shared.vault_uri

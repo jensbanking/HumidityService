@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars (gitignored) and fill in real values, or pass these as -var /
+# TF_VAR_* environment variables instead. Never commit terraform.tfvars.
+
+tenant_id = "00000000-0000-0000-0000-000000000000"
+
+# From `terraform output key_vault_id` / `key_vault_uri` in ../../bootstrap
+shared_key_vault_id  = "/subscriptions/.../resourceGroups/rg-humidity-shared/providers/Microsoft.KeyVault/vaults/kv-humidity-shared"
+shared_key_vault_uri = "https://kv-humidity-shared.vault.azure.net/"
+
+sql_aad_admin_login_name = "sql-admins-development"
+sql_aad_admin_object_id  = "00000000-0000-0000-0000-000000000000"
+
+# Do NOT put danfoss_client_id / danfoss_client_secret here even in a local, gitignored file.
+# Supply them as TF_VAR_danfoss_client_id / TF_VAR_danfoss_client_secret environment variables
+# at apply time instead (e.g. from a CI secret store or a local password manager).

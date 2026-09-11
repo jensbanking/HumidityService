@@ -101,7 +101,7 @@
 * Enforce naming format: `{location}/yyyy/MM/dd/{location}_outdoor_yyyy_MM_dd_hour.json`, where `{location}` is the same `slug` used in Feature 1, so indoor and outdoor readings correlate.
 * Fallback to local emulator storage (Azurite) as default configuration.
 
-### - [ ] Feature 3: Infrastructure as Code (Terraform)
+### - [x] Feature 3: Infrastructure as Code (Terraform)
 * Author Terraform configurations to support 4 environments (`development`, `test`, `staging`, `production`) and 1 `shared` resource group.
 * Provision an environment-specific Azure Function, Blob Storage, Azure SQL Database, and Virtual Network (VNet) for SQL firewalling.
 * Automate copying Blob Storage connection strings to Azure Function environment variables.
@@ -128,6 +128,7 @@
 * Support an argument parameter to trigger processing independently without pulling fresh API data.
 * Enable batch processing to backfill and catch up on unprocessed blobs from storage, keyed by both location and date so backfill can target a specific location without reprocessing others.
 * Guarantee strict **Idempotency** for all data entries written to the Data Warehouse.
+* **Open decision (revisit when building this feature):** "chain immediately following ingestion" above would hit Azure SQL every hour, which works against the serverless database's auto-pause (Feature 3 sets `auto_pause_delay_in_minutes = 60`, Azure's minimum). Consider decoupling the DWH sync onto its own, less frequent schedule (e.g. every few hours or once daily) instead of running it right after every hourly ingestion. Decide the actual cadence here, not earlier - it has no impact on the Feature 3 infrastructure.
 
 ### - [ ] Feature 7: Monitoring & Alerting
 * Design operational dashboards inside Azure Application Insights.

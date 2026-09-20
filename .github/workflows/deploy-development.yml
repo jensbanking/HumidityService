@@ -119,17 +119,20 @@ jobs:
         with:
           name: function-app
 
+      # Older Azure CLI builds send zip deploys to the classic Kudu endpoint, which Flex
+      # Consumption's deployment backend rejects with 415 Unsupported Media Type - az upgrade
+      # pulls in the CLI version that targets the correct endpoint for this plan type. Runs
+      # before login: az upgrade reinstalls the CLI in place and can invalidate a login session
+      # started beforehand, which surfaced as a "Connection reset by peer" fetching a token
+      # during the deploy step when this ran after azure/login.
+      - name: Upgrade Azure CLI
+        run: az upgrade --yes --only-show-errors
+
       - uses: azure/login@v2
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      # Older Azure CLI builds send zip deploys to the classic Kudu endpoint, which Flex
-      # Consumption's deployment backend rejects with 415 Unsupported Media Type - az upgrade
-      # pulls in the CLI version that targets the correct endpoint for this plan type.
-      - name: Upgrade Azure CLI
-        run: az upgrade --yes --only-show-errors
 
       - name: Deploy to Azure Functions (Flex Consumption)
         run: >

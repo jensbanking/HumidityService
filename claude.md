@@ -111,8 +111,9 @@
 ### - [ ] Feature 4: CI/CD Pipeline (GitHub Actions)
 * Configure GitHub Actions workflows for automated continuous integration and delivery.
 * Orchestrate Terraform infrastructure deployment steps.
-* Execute Entity Framework Core database migrations against target databases.
 * Build and deploy the .NET 10 Function app artifact to Azure.
+* Database migrations are deliberately out of scope here — see Feature 7, which depends on the EF Core schema (Feature 5) existing first.
+* `development`/`test` deploy automatically; `staging`/`production` require manual approval (e.g. a GitHub Environments protection rule) before the deployment job runs.
 
 ### - [ ] Feature 5: Data Warehouse Design (EF Core)
 * Model a Relational Star Schema using Entity Framework Core code-first approach.
@@ -130,12 +131,18 @@
 * Guarantee strict **Idempotency** for all data entries written to the Data Warehouse.
 * **Open decision (revisit when building this feature):** "chain immediately following ingestion" above would hit Azure SQL every hour, which works against the serverless database's auto-pause (Feature 3 sets `auto_pause_delay_in_minutes = 60`, Azure's minimum). Consider decoupling the DWH sync onto its own, less frequent schedule (e.g. every few hours or once daily) instead of running it right after every hourly ingestion. Decide the actual cadence here, not earlier - it has no impact on the Feature 3 infrastructure.
 
-### - [ ] Feature 7: Monitoring & Alerting
+### - [ ] Feature 7: CI/CD Database Migration Pipeline
+* Extend the Feature 4 GitHub Actions pipeline to execute Entity Framework Core database migrations against target databases, once Feature 5 (Data Warehouse schema) and Feature 6 (ETL logic) exist.
+* Resolve the `manage_database_user = false` gap in the Terraform SQL module (see `terraform/README.md`, "What's still open") so the Function App's managed identity can authenticate to Azure SQL non-interactively.
+* Decide and implement migration cadence/safety — e.g. run only on schema-changing deploys. Applies the same manual-approval gate as Feature 4 for `staging`/`production`.
+* Resolves the open decision under Feature 6 about DWH sync cadence vs. serverless SQL auto-pause: migrations/sync run on this pipeline's own schedule, decoupled from the hourly ingestion trigger.
+
+### - [ ] Feature 8: Monitoring & Alerting
 * Design operational dashboards inside Azure Application Insights.
 * Configure metric alerts for failed ingestion cycles.
 * Configure metric alerts for ETL processing errors and database sync failures.
 
-### - [ ] Feature 8: Data Quality & Governance
+### - [ ] Feature 9: Data Quality & Governance
 * Enforce request payload validation on incoming API schemas.
 * Intercept and log invalid or malformed data records without halting the application pipeline.
 * Route corrupt or unparseable source files to a dedicated blob storage container called `dead-letter`.

@@ -25,9 +25,7 @@ Two layers:
 2. **Per environment** (repeat for development/test/staging/production):
    ```powershell
    cd terraform/environments/development
-   terraform init `
-     -backend-config="resource_group_name=<shared_resource_group_name>" `
-     -backend-config="storage_account_name=<tfstate_storage_account_name>"
+   terraform init -backend-config="storage_account_name=<tfstate_storage_account_name>"
 
    Copy-Item terraform.tfvars.example terraform.tfvars   # then fill in real, non-secret values
    $env:TF_VAR_danfoss_client_id     = "<client id>"
@@ -36,6 +34,13 @@ Two layers:
    terraform plan
    terraform apply
    ```
+
+   The backend authenticates to the state blob as your own Azure AD identity (`use_azuread_auth
+   = true` in each environment's `versions.tf` - no storage account key ever leaves Azure). This
+   needs the `Storage Blob Data Contributor` role on the tfstate storage account itself; grant it
+   to your own user (or rely on a broader role like Owner that already includes it) before the
+   first `terraform init` for an environment. The same role is required for the CI service
+   principal - see "CI/CD authentication" below.
 
    Before the first `apply` for an environment, edit that environment's `main.tf` and replace the
    placeholder `locations` block (`danfossDeviceId = "REPLACE_WITH_REAL_DANFOSS_DEVICE_ID"`) with
@@ -77,7 +82,12 @@ Setup per environment:
    matches the GitHub Environment above.
 3. Grant the app's service principal `Contributor` on that environment's resource group
    (`rg-humidity-<env>`), plus `Key Vault Secrets User` on the shared Key Vault if the pipeline
-   needs to read secrets from it.
+   needs to read secrets from it. Also grant `Storage Blob Data Contributor`, scoped to the
+   tfstate storage account (in `rg-humidity-shared`, from bootstrap), so `terraform init`'s
+   `use_azuread_auth` backend can read/write the state blob - without this the pipeline fails at
+   `terraform init` with "Either an Access Key / SAS Token or the Resource Group for the Storage
+   Account must be specified - or Azure AD Authentication must be enabled", since the service
+   principal otherwise has no permission on `rg-humidity-shared` at all.
 4. In GitHub: Settings → Environments → create/confirm `development`/`test`/`staging`/`production`.
    `staging` and `production` require a *Required reviewer* (manual approval before deploy runs).
    Add environment variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (plain

@@ -89,7 +89,6 @@ jobs:
       - name: Terraform init
         run: >
           terraform init
-          -backend-config="resource_group_name=${{ vars.TF_BACKEND_RESOURCE_GROUP }}"
           -backend-config="storage_account_name=${{ vars.TF_BACKEND_STORAGE_ACCOUNT }}"
 
       - name: Terraform plan

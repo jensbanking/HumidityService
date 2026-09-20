@@ -52,3 +52,39 @@ Two layers:
   run `terraform apply` non-interactively.
 - The Function App's own deployment (the compiled artifact) isn't part of this Terraform - it
   provisions the empty Function App; Feature 4 deploys code into it.
+
+### CI/CD authentication (Feature 4 / Feature 7 prerequisite)
+
+GitHub Actions authenticates to Azure via OIDC federated credentials - no client secret is
+stored anywhere. One App Registration per environment (not one shared registration), each with a
+single federated credential scoped to that environment's GitHub Environment:
+
+| Environment | App registration name | Federated credential name | GitHub Environment |
+|---|---|---|---|
+| development | `spn-humidity-development` | `github-actions-development` | `development` |
+| test        | `spn-humidity-test`        | `github-actions-test`        | `test`        |
+| staging     | `spn-humidity-staging`     | `github-actions-staging`     | `staging`     |
+| production  | `spn-humidity-production`  | `github-actions-production`  | `production`  |
+
+Naming follows the same `name_prefix` (`humidity`) used everywhere else in this Terraform (see
+`bootstrap/variables.tf`), so App Registrations line up visually with the resource groups they
+deploy into (`rg-humidity-<env>`).
+
+Setup per environment:
+1. Entra ID → App registrations → New registration → name per the table above.
+2. App → *Certificates & secrets* → *Federated credentials* → *Add credential* → scenario
+   "GitHub Actions deploying Azure resources" → entity type "Environment" → environment name
+   matches the GitHub Environment above.
+3. Grant the app's service principal `Contributor` on that environment's resource group
+   (`rg-humidity-<env>`), plus `Key Vault Secrets User` on the shared Key Vault if the pipeline
+   needs to read secrets from it.
+4. In GitHub: Settings → Environments → create/confirm `development`/`test`/`staging`/`production`.
+   `staging` and `production` require a *Required reviewer* (manual approval before deploy runs).
+   Add environment variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (plain
+   variables, not secrets - OIDC means there's no password to protect).
+5. Workflow jobs need `permissions: id-token: write` and use `azure/login@v2` with those three
+   variables.
+
+References:
+- https://learn.microsoft.com/en-us/azure/developer/github/connect-from-azure-openid-connect
+- https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-azure

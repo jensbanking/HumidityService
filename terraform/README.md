@@ -81,13 +81,19 @@ Setup per environment:
    "GitHub Actions deploying Azure resources" → entity type "Environment" → environment name
    matches the GitHub Environment above.
 3. Grant the app's service principal `Contributor` on that environment's resource group
-   (`rg-humidity-<env>`), plus `Key Vault Secrets User` on the shared Key Vault if the pipeline
-   needs to read secrets from it. Also grant `Storage Blob Data Contributor`, scoped to the
-   tfstate storage account (in `rg-humidity-shared`, from bootstrap), so `terraform init`'s
-   `use_azuread_auth` backend can read/write the state blob - without this the pipeline fails at
-   `terraform init` with "Either an Access Key / SAS Token or the Resource Group for the Storage
-   Account must be specified - or Azure AD Authentication must be enabled", since the service
-   principal otherwise has no permission on `rg-humidity-shared` at all.
+   (`rg-humidity-<env>`), plus two roles on the shared Key Vault and its storage account (both in
+   `rg-humidity-shared`, from bootstrap):
+   - `Key Vault Secrets Officer` on `kv-humidity-shared` - the pipeline doesn't just read secrets,
+     it creates/updates them via the `azurerm_key_vault_secret` resources in
+     `modules/environment/main.tf` (storage connection string, Danfoss client id/secret, SQL
+     connection string), which needs write (`Set`) access - `Key Vault Secrets User` is read-only
+     and fails even on `terraform plan`, which has to read the existing secret value to diff
+     against, with a 403 `Forbidden` on `Microsoft.KeyVault/vaults/secrets/getSecret/action`.
+   - `Storage Blob Data Contributor`, scoped to the tfstate storage account, so `terraform init`'s
+     `use_azuread_auth` backend can read/write the state blob - without this the pipeline fails at
+     `terraform init` with "Either an Access Key / SAS Token or the Resource Group for the Storage
+     Account must be specified - or Azure AD Authentication must be enabled", since the service
+     principal otherwise has no permission on `rg-humidity-shared` at all.
 4. In GitHub: Settings → Environments → create/confirm `development`/`test`/`staging`/`production`.
    `staging` and `production` require a *Required reviewer* (manual approval before deploy runs).
    Add environment variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (plain

@@ -125,6 +125,12 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      # Older Azure CLI builds send zip deploys to the classic Kudu endpoint, which Flex
+      # Consumption's deployment backend rejects with 415 Unsupported Media Type - az upgrade
+      # pulls in the CLI version that targets the correct endpoint for this plan type.
+      - name: Upgrade Azure CLI
+        run: az upgrade --yes --only-show-errors
+
       - name: Deploy to Azure Functions (Flex Consumption)
         run: >
           az functionapp deploy

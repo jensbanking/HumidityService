@@ -17,12 +17,14 @@ resource "azurerm_subnet" "function" {
   virtual_network_name = azurerm_virtual_network.this.name
   address_prefixes     = [var.function_subnet_prefix]
 
-  # Required for regional VNet Integration (Premium/Elastic Premium Function App plans).
+  # Required for regional VNet Integration. Flex Consumption Function Apps are built on the
+  # same underlying platform as Container Apps, so - unlike the older Premium/Elastic Premium
+  # plans, which delegate to Microsoft.Web/serverFarms - they require this delegation instead.
   delegation {
     name = "function-delegation"
 
     service_delegation {
-      name    = "Microsoft.Web/serverFarms"
+      name    = "Microsoft.App/environments"
       actions = ["Microsoft.Network/virtualNetworks/subnets/action"]
     }
   }

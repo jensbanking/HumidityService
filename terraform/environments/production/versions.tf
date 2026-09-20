@@ -18,5 +18,9 @@ terraform {
 }
 
 provider "azurerm" {
+  # Deliberately left at the provider default (features.resource_group.prevent_deletion_if_contains_resources
+  # = true): unlike development/test/staging, this resource group should never be silently
+  # wiped out by a `terraform destroy` just because it contains something Terraform doesn't
+  # track (e.g. Azure's auto-created "Application Insights Smart Detection" action group).
   features {}
 }

@@ -7,7 +7,7 @@ module "environment" {
   vnet_address_space     = ["10.10.0.0/16"]
   function_subnet_prefix = "10.10.1.0/24"
 
-  function_app_sku_name = "EP1"
+  function_app_sku_name = "FC1"
   database_sku_name     = "GP_S_Gen5_1" # serverless: cheapest option, fine for a non-production environment
   manage_database_user  = false         # see modules/sql/README.md for the manual fallback
 

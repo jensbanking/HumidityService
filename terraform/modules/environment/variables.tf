@@ -25,9 +25,9 @@ variable "function_subnet_prefix" {
 }
 
 variable "function_app_sku_name" {
-  description = "App Service Plan SKU for the Function App (Premium/Elastic-Premium tier - see modules/function-app)."
+  description = "App Service Plan SKU for the Function App - \"FC1\" (Flex Consumption) is the only supported value; see modules/function-app."
   type        = string
-  default     = "EP1"
+  default     = "FC1"
 }
 
 variable "database_sku_name" {

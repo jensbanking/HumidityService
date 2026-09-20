@@ -14,9 +14,27 @@ variable "location" {
 }
 
 variable "sku_name" {
-  description = "App Service Plan SKU. Must be Premium/Elastic-Premium ((\"EP1\", \"EP2\", \"EP3\") or a Dedicated plan - Consumption does not support regional VNet Integration, which is required to firewall SQL to the VNet."
+  description = "App Service Plan SKU. \"FC1\" (Flex Consumption) is the only SKU this module's Flex Consumption Function App resource supports - it bills per-execution (no idle/reserved-instance cost) while still supporting regional VNet Integration, unlike the older Consumption (Y1) plan."
   type        = string
-  default     = "EP1"
+  default     = "FC1"
+}
+
+variable "runtime_version" {
+  description = "dotnet-isolated runtime version for the Flex Consumption Function App, matching the FunctionHost project's TargetFramework (e.g. \"10.0\")."
+  type        = string
+  default     = "10.0"
+}
+
+variable "maximum_instance_count" {
+  description = "Upper bound on concurrent Flex Consumption instances."
+  type        = number
+  default     = 40
+}
+
+variable "instance_memory_in_mb" {
+  description = "Memory per Flex Consumption instance in MB (2048 or 4096)."
+  type        = number
+  default     = 2048
 }
 
 variable "function_subnet_id" {
@@ -30,7 +48,12 @@ variable "storage_account_name" {
 }
 
 variable "storage_account_id" {
-  description = "Resource ID of the storage account, used to scope the RBAC role assignment for the Function App's identity-based AzureWebJobsStorage connection."
+  description = "Resource ID of the storage account, used to scope the RBAC role assignment for the Function App's identity-based storage connections."
+  type        = string
+}
+
+variable "storage_primary_blob_endpoint" {
+  description = "Primary Blob service endpoint of the storage account (module.storage output primary_blob_endpoint), used to build the Flex Consumption deployment storage container's endpoint URL."
   type        = string
 }
 

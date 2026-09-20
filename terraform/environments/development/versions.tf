@@ -18,5 +18,15 @@ terraform {
 }
 
 provider "azurerm" {
-  features {}
+  features {
+    resource_group {
+      # This environment is expected to be torn down and rebuilt for testing. Without this,
+      # `terraform destroy` refuses to delete the resource group if anything not tracked in
+      # state remains in it (e.g. the "Application Insights Smart Detection" action group
+      # Azure creates automatically alongside Application Insights) - it would otherwise have
+      # to be removed by hand before every destroy. Deliberately left at the default (true,
+      # safer) for production - see that environment's versions.tf.
+      prevent_deletion_if_contains_resources = false
+    }
+  }
 }

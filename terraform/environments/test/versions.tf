@@ -9,11 +9,16 @@ terraform {
   }
 
   # Partial config: run
-  #   terraform init -backend-config="storage_account_name=<tfstate_storage_account_name from bootstrap output>" -backend-config="resource_group_name=<shared_resource_group_name>"
+  #   terraform init -backend-config="storage_account_name=<tfstate_storage_account_name from bootstrap output>"
   # so the storage account's globally-unique generated name never has to be hardcoded here.
+  # use_azuread_auth: authenticates to the state blob with the caller's own Azure AD identity
+  # (interactively, or the CI service principal's OIDC token) instead of fetching/using a
+  # storage account access key - no key-listing permission on the shared state storage account
+  # needed, only "Storage Blob Data Contributor" scoped to it. See terraform/README.md.
   backend "azurerm" {
-    container_name = "tfstate"
-    key            = "test.tfstate"
+    container_name   = "tfstate"
+    key              = "test.tfstate"
+    use_azuread_auth = true
   }
 }
 

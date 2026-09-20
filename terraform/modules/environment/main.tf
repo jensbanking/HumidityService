@@ -97,15 +97,16 @@ resource "azurerm_key_vault_secret" "sql_connection_string" {
 module "function_app" {
   source = "../function-app"
 
-  name_prefix            = local.name_prefix
-  resource_group_name    = azurerm_resource_group.this.name
-  location               = azurerm_resource_group.this.location
-  sku_name               = var.function_app_sku_name
-  function_subnet_id     = module.networking.function_subnet_id
-  storage_account_name   = module.storage.storage_account_name
-  storage_account_id     = module.storage.storage_account_id
-  storage_container_name = module.storage.container_name
-  key_vault_uri          = var.shared_key_vault_uri
+  name_prefix                   = local.name_prefix
+  resource_group_name           = azurerm_resource_group.this.name
+  location                      = azurerm_resource_group.this.location
+  sku_name                      = var.function_app_sku_name
+  function_subnet_id            = module.networking.function_subnet_id
+  storage_account_name          = module.storage.storage_account_name
+  storage_account_id            = module.storage.storage_account_id
+  storage_primary_blob_endpoint = module.storage.primary_blob_endpoint
+  storage_container_name        = module.storage.container_name
+  key_vault_uri                 = var.shared_key_vault_uri
 
   storage_connection_string_secret_name = azurerm_key_vault_secret.storage_connection_string.name
   danfoss_client_id_secret_name         = azurerm_key_vault_secret.danfoss_client_id.name

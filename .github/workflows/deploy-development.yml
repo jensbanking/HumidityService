@@ -112,21 +112,11 @@ jobs:
       id-token: write
       contents: read
     env:
-      RESOURCE_GROUP: ${{ needs.terraform.outputs.resource_group_name }}
       FUNCTION_APP_NAME: ${{ needs.terraform.outputs.function_app_name }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: function-app
-
-      # Older Azure CLI builds send zip deploys to the classic Kudu endpoint, which Flex
-      # Consumption's deployment backend rejects with 415 Unsupported Media Type - az upgrade
-      # pulls in the CLI version that targets the correct endpoint for this plan type. Runs
-      # before login: az upgrade reinstalls the CLI in place and can invalidate a login session
-      # started beforehand, which surfaced as a "Connection reset by peer" fetching a token
-      # during the deploy step when this ran after azure/login.
-      - name: Upgrade Azure CLI
-        run: az upgrade --yes --only-show-errors
 
       - uses: azure/login@v2
         with:
@@ -134,10 +124,15 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      # az functionapp deploy / az functionapp deployment source config-zip are unreliable
+      # against Flex Consumption's OneDeploy backend (415/503s - see e.g.
+      # github.com/Azure/azure-cli/issues/33184). Azure/functions-action with sku: flexconsumption
+      # is Microsoft's supported path for this plan type and targets the right endpoint. Don't set
+      # scm-do-build-during-deployment / enable-oryx-build - Flex Consumption always remote-builds
+      # regardless, and setting them fights that instead of working with it.
       - name: Deploy to Azure Functions (Flex Consumption)
-        run: >
-          az functionapp deploy
-          --resource-group "$RESOURCE_GROUP"
-          --name "$FUNCTION_APP_NAME"
-          --src-path function-app.zip
-          --type zip
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.FUNCTION_APP_NAME }}
+          package: function-app.zip
+          sku: flexconsumption

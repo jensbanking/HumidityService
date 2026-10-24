@@ -46,6 +46,11 @@ public sealed class ConfigurationLocationProvider : ILocationProvider
             {
                 throw new InvalidOperationException("A configured location is missing a required 'slug' value.");
             }
+
+            if (string.IsNullOrWhiteSpace(location.DanfossGatewayId))
+            {
+                throw new InvalidOperationException($"Location '{location.Slug}' is missing a required 'danfossGatewayId' value.");
+            }
         }
 
         _locations = parsed;

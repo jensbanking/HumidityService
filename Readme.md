@@ -88,7 +88,7 @@ Ensure Azurite is running for local blob management. Create a `local.settings.js
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "DanfossApi__BaseUrl": "https://api.danfoss.com",
     "OpenMeteoApi__BaseUrl": "https://api.open-meteo.com",
-    "Locations": "[{\"slug\":\"aarhus-house1\",\"danfossDeviceId\":\"<device-id>\",\"latitude\":56.1629,\"longitude\":10.2039}]",
+    "Locations": "[{\"slug\":\"aarhus-house1\",\"danfossGatewayId\":\"<gateway-id>\",\"latitude\":56.1629,\"longitude\":10.2039}]",
     "SqlConnectionString": "Server=localhost;Database=HumidityDwh;Trusted_Connection=True;"
   }
 }

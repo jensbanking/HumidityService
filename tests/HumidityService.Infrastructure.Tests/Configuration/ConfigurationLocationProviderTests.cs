@@ -12,13 +12,14 @@ public class ConfigurationLocationProviderTests
     {
         var configuration = Substitute.For<IConfiguration>();
         configuration["Locations"].Returns(
-            "[{\"slug\":\"aarhus-house1\",\"latitude\":56.1629,\"longitude\":10.2039}]");
+            "[{\"slug\":\"aarhus-house1\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.1629,\"longitude\":10.2039}]");
 
         var sut = new ConfigurationLocationProvider(configuration);
         var locations = sut.GetLocations();
 
         var location = Assert.Single(locations);
         Assert.Equal("aarhus-house1", location.Slug);
+        Assert.Equal("gw-1", location.DanfossGatewayId);
         Assert.Equal(56.1629, location.Latitude);
         Assert.Equal(10.2039, location.Longitude);
     }
@@ -58,7 +59,18 @@ public class ConfigurationLocationProviderTests
     {
         var configuration = Substitute.For<IConfiguration>();
         configuration["Locations"].Returns(
-            "[{\"slug\":\"\",\"latitude\":56.1629,\"longitude\":10.2039}]");
+            "[{\"slug\":\"\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.1629,\"longitude\":10.2039}]");
+
+        Assert.Throws<InvalidOperationException>(() => new ConfigurationLocationProvider(configuration));
+    }
+
+    [Theory]
+    [InlineData("[{\"slug\":\"aarhus-house1\",\"latitude\":56.1629,\"longitude\":10.2039}]")]
+    [InlineData("[{\"slug\":\"aarhus-house1\",\"danfossGatewayId\":\" \",\"latitude\":56.1629,\"longitude\":10.2039}]")]
+    public void Constructor_LocationMissingGatewayId_Throws(string rawValue)
+    {
+        var configuration = Substitute.For<IConfiguration>();
+        configuration["Locations"].Returns(rawValue);
 
         Assert.Throws<InvalidOperationException>(() => new ConfigurationLocationProvider(configuration));
     }

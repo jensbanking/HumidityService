@@ -49,7 +49,7 @@
 - A single deployed environment supports **multiple locations** (e.g., multiple houses/devices), configured statically per environment — no dynamic discovery from the Danfoss API and no runtime location resolution.
 - Each location is defined as a static config entry containing:
   - `slug` — a URL/path-safe identifier (lowercase, no spaces, e.g. `aarhus-house1`), used identically for both indoor and outdoor naming so readings can be correlated.
-  - `danfossDeviceId` — the indoor device/house identifier used against the Danfoss API.
+  - `danfossGatewayId` — the Danfoss Ally gateway ID (from the `/ally/devices` response) identifying the location's house.
   - `latitude` / `longitude` — the coordinate pair used for the Open-Meteo outdoor query.
 - The full set of locations is stored as a list (e.g., a JSON app setting, config file, or small config table) rather than as individual scalar environment variables, since cardinality is >1 per environment.
 - Indoor and outdoor ingestion (Features 1 & 2) iterate over this list on every run, producing one blob per location per run for each of indoor/outdoor.
@@ -88,7 +88,7 @@
 * Develop a timer-triggered Azure Function running at the top of every hour.
 * Iterate over all configured locations (see Location Configuration); process each location independently so a failure on one does not block the others in the same run.
 * Fetch OAuth tokens from `https://api.danfoss.com/oauth2/token`.
-* Fetch climate data from `https://api.danfoss.com/ally/devices`, using each location's `danfossDeviceId`.
+* Fetch climate data from `https://api.danfoss.com/ally/devices`, using each location's `danfossGatewayId`.
 * Persist raw JSON responses directly to Azure Blob Storage, one blob per location.
 * Enforce naming format: `{location}/yyyy/MM/dd/{location}_indoor_yyyy_MM_dd_hour.json`, where `{location}` is the location's `slug`.
 * Fallback to local emulator storage (Azurite) as default configuration.

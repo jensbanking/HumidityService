@@ -9,25 +9,72 @@ namespace HumidityService.Application.Tests.Services;
 
 public class IndoorClimateIngestionServiceTests
 {
+    private const string DevicesJson = "{\"result\":[{\"id\":\"gw-1\",\"device_type\":\"Danfoss Ally™ Gateway\"},{\"id\":\"room-1\"},{\"id\":\"gw-2\"}]}";
+
+    private readonly ILocationProvider _locationProvider = Substitute.For<ILocationProvider>();
     private readonly IDanfossAuthClient _authClient = Substitute.For<IDanfossAuthClient>();
     private readonly IDanfossClimateApiClient _climateApiClient = Substitute.For<IDanfossClimateApiClient>();
     private readonly IRawClimateBlobStorage _blobStorage = Substitute.For<IRawClimateBlobStorage>();
     private readonly ILogger<IndoorClimateIngestionService> _logger = Substitute.For<ILogger<IndoorClimateIngestionService>>();
 
     private IndoorClimateIngestionService CreateSut() =>
-        new(_authClient, _climateApiClient, _blobStorage, _logger);
+        new(_locationProvider, _authClient, _climateApiClient, _blobStorage, _logger);
 
-    [Fact]
-    public async Task IngestAsync_Success_FetchesTokenThenDevicesThenSavesAccountWideSnapshot()
+    private void GivenDeviceList(string json)
     {
         _authClient.GetAccessTokenAsync(Arg.Any<CancellationToken>()).Returns("token-123");
-        _climateApiClient.GetAllDevicesAsync("token-123", Arg.Any<CancellationToken>()).Returns("{\"devices\":[]}");
+        _climateApiClient.GetAllDevicesAsync("token-123", Arg.Any<CancellationToken>()).Returns(json);
+    }
+
+    [Fact]
+    public async Task IngestAsync_MultipleLocations_FetchesDevicesOnceAndSavesPerLocation()
+    {
+        _locationProvider.GetLocations().Returns(new[]
+        {
+            new Location("aarhus-house1", "gw-1", 56.1629, 10.2039),
+            new Location("odense-house2", "gw-2", 55.4038, 10.4024),
+        });
+        GivenDeviceList(DevicesJson);
 
         await CreateSut().IngestAsync(CancellationToken.None);
 
         await _authClient.Received(1).GetAccessTokenAsync(Arg.Any<CancellationToken>());
         await _climateApiClient.Received(1).GetAllDevicesAsync("token-123", Arg.Any<CancellationToken>());
-        await _blobStorage.Received(1).SaveRawReadingAsync(null, ClimateReadingType.Indoor, Arg.Any<DateTimeOffset>(), "{\"devices\":[]}", Arg.Any<CancellationToken>());
+        await _blobStorage.Received(1).SaveRawReadingAsync("aarhus-house1", ClimateReadingType.Indoor, Arg.Any<DateTimeOffset>(), DevicesJson, Arg.Any<CancellationToken>());
+        await _blobStorage.Received(1).SaveRawReadingAsync("odense-house2", ClimateReadingType.Indoor, Arg.Any<DateTimeOffset>(), DevicesJson, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task IngestAsync_GatewayNotInDeviceList_SkipsThatLocationOnly()
+    {
+        _locationProvider.GetLocations().Returns(new[]
+        {
+            new Location("unknown-house", "gw-missing", 56.1629, 10.2039),
+            new Location("aarhus-house1", "gw-1", 56.1629, 10.2039),
+        });
+        GivenDeviceList(DevicesJson);
+
+        await CreateSut().IngestAsync(CancellationToken.None);
+
+        await _blobStorage.DidNotReceive().SaveRawReadingAsync("unknown-house", Arg.Any<ClimateReadingType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _blobStorage.Received(1).SaveRawReadingAsync("aarhus-house1", ClimateReadingType.Indoor, Arg.Any<DateTimeOffset>(), DevicesJson, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task IngestAsync_OneLocationSaveFails_StillSavesRemainingLocations()
+    {
+        _locationProvider.GetLocations().Returns(new[]
+        {
+            new Location("aarhus-house1", "gw-1", 56.1629, 10.2039),
+            new Location("odense-house2", "gw-2", 55.4038, 10.4024),
+        });
+        GivenDeviceList(DevicesJson);
+        _blobStorage.SaveRawReadingAsync("aarhus-house1", Arg.Any<ClimateReadingType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns<Task>(_ => throw new InvalidOperationException("storage down"));
+
+        await CreateSut().IngestAsync(CancellationToken.None);
+
+        await _blobStorage.Received(1).SaveRawReadingAsync("odense-house2", ClimateReadingType.Indoor, Arg.Any<DateTimeOffset>(), DevicesJson, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -48,6 +95,17 @@ public class IndoorClimateIngestionServiceTests
         _climateApiClient.GetAllDevicesAsync("token-123", Arg.Any<CancellationToken>()).Returns<string>(_ => throw new HttpRequestException("boom"));
 
         await Assert.ThrowsAsync<HttpRequestException>(() => CreateSut().IngestAsync(CancellationToken.None));
+
+        await _blobStorage.DidNotReceive().SaveRawReadingAsync(Arg.Any<string?>(), Arg.Any<ClimateReadingType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task IngestAsync_MalformedDeviceList_ThrowsAndDoesNotSave()
+    {
+        _locationProvider.GetLocations().Returns(new[] { new Location("aarhus-house1", "gw-1", 56.1629, 10.2039) });
+        GivenDeviceList("{\"devices\":[]}");
+
+        await Assert.ThrowsAnyAsync<Exception>(() => CreateSut().IngestAsync(CancellationToken.None));
 
         await _blobStorage.DidNotReceive().SaveRawReadingAsync(Arg.Any<string?>(), Arg.Any<ClimateReadingType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }

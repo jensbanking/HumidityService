@@ -55,6 +55,13 @@ resource "azurerm_function_app_flex_consumption" "this" {
   # environment automatically via Terraform - as a Key Vault reference, not a plaintext
   # value, so the secret itself never lands in source control or the app setting itself.
   app_settings = {
+    # Identity-based host storage. With storage_authentication_type = "SystemAssignedIdentity"
+    # the provider otherwise writes an AzureWebJobsStorage connection string with an empty
+    # AccountKey, which fails with AuthenticationFailed and keeps timer triggers from firing.
+    # An empty value makes the host fall back to the __accountName (Managed Identity) form.
+    "AzureWebJobsStorage"              = ""
+    "AzureWebJobsStorage__accountName" = var.storage_account_name
+
     "ClimateStorage__ConnectionString" = "@Microsoft.KeyVault(SecretUri=${var.key_vault_uri}secrets/${var.storage_connection_string_secret_name}/)"
     "ClimateStorage__ContainerName"    = var.storage_container_name
 

@@ -42,9 +42,8 @@ Two layers:
    first `terraform init` for an environment. The same role is required for the CI service
    principal - see "CI/CD authentication" below.
 
-   Before the first `apply` for an environment, edit that environment's `main.tf` and replace the
-   placeholder `locations` block (`danfossDeviceId = "REPLACE_WITH_REAL_DANFOSS_DEVICE_ID"`) with
-   the real location list for that environment.
+   Each environment's `main.tf` holds its static `locations` list (`slug`, `danfossGatewayId`,
+   `latitude`, `longitude`). Edit it there to add or change locations.
 
 3. After `apply`, follow `modules/sql/README.md` to grant the Function App's managed identity a
    contained database user (skipped by default - `manage_database_user = false` - since it needs

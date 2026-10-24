@@ -80,12 +80,12 @@ variable "danfoss_client_secret" {
 }
 
 variable "locations" {
-  description = "Statically configured locations for this environment (see CLAUDE.md Location Configuration): slug, danfossDeviceId, latitude, longitude."
+  description = "Statically configured locations for this environment (see CLAUDE.md Location Configuration): slug, danfossGatewayId, latitude, longitude."
   type = list(object({
-    slug            = string
-    danfossDeviceId = string
-    latitude        = number
-    longitude       = number
+    slug             = string
+    danfossGatewayId = string
+    latitude         = number
+    longitude        = number
   }))
 }
 

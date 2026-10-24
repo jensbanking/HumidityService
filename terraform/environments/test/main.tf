@@ -21,13 +21,12 @@ module "environment" {
   danfoss_client_id     = var.danfoss_client_id
   danfoss_client_secret = var.danfoss_client_secret
 
-  # TODO: replace with the real Danfoss device ID(s) for this location before first apply.
   locations = [
     {
-      slug            = "aarhus-house1"
-      danfossDeviceId = "REPLACE_WITH_REAL_DANFOSS_DEVICE_ID"
-      latitude        = 56.1496
-      longitude       = 10.2134
+      slug             = "outdoor-lyngby"
+      danfossGatewayId = "bfc446bebf1c46ce49vzaq"
+      latitude         = 56.864
+      longitude        = 9.951
     },
   ]
 

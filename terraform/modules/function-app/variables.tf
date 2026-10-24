@@ -100,7 +100,7 @@ variable "open_meteo_api_base_url" {
 }
 
 variable "locations_json" {
-  description = "JSON-encoded array of configured locations (slug, danfossDeviceId, latitude, longitude), matching the \"Locations\" app setting consumed by ConfigurationLocationProvider."
+  description = "JSON-encoded array of configured locations (slug, danfossGatewayId, latitude, longitude), matching the \"Locations\" app setting consumed by ConfigurationLocationProvider."
   type        = string
 }
 

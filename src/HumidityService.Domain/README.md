@@ -8,5 +8,5 @@ Per the Clean Architecture rules in `claude.md`:
 
 Planned contents (see roadmap Features 1, 2, 5):
 - `ClimateReading` (indoor/outdoor value objects)
-- `Location` value object (`slug`, `danfossDeviceId`, `latitude`, `longitude`)
+- `Location` value object (`slug`, `danfossGatewayId`, `latitude`, `longitude`)
 - Validation logic for incoming readings

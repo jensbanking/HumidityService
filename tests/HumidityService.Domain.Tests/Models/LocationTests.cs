@@ -8,8 +8,8 @@ public class LocationTests
     [Fact]
     public void Locations_WithSameValues_AreEqual()
     {
-        var first = new Location("aarhus-house1", 56.1629, 10.2039);
-        var second = new Location("aarhus-house1", 56.1629, 10.2039);
+        var first = new Location("aarhus-house1", "gw-aarhus-house1", 56.1629, 10.2039);
+        var second = new Location("aarhus-house1", "gw-aarhus-house1", 56.1629, 10.2039);
 
         Assert.Equal(first, second);
     }
@@ -17,8 +17,8 @@ public class LocationTests
     [Fact]
     public void Locations_WithDifferentSlug_AreNotEqual()
     {
-        var first = new Location("aarhus-house1", 56.1629, 10.2039);
-        var second = new Location("aarhus-house2", 56.1629, 10.2039);
+        var first = new Location("aarhus-house1", "gw-aarhus-house1", 56.1629, 10.2039);
+        var second = new Location("aarhus-house2", "gw-aarhus-house1", 56.1629, 10.2039);
 
         Assert.NotEqual(first, second);
     }

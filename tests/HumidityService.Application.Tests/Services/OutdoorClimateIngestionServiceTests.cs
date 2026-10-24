@@ -22,8 +22,8 @@ public class OutdoorClimateIngestionServiceTests
     {
         var locations = new[]
         {
-            new Location("aarhus-house1", 56.1629, 10.2039),
-            new Location("odense-house2", 55.4038, 10.4024),
+            new Location("aarhus-house1", "gw-aarhus-house1", 56.1629, 10.2039),
+            new Location("odense-house2", "gw-odense-house2", 55.4038, 10.4024),
         };
         _locationProvider.GetLocations().Returns(locations);
         _openMeteoApiClient.GetOutdoorClimateAsync(56.1629, 10.2039, Arg.Any<CancellationToken>()).Returns("{\"aarhus\":true}");
@@ -40,8 +40,8 @@ public class OutdoorClimateIngestionServiceTests
     {
         var locations = new[]
         {
-            new Location("aarhus-house1", 56.1629, 10.2039),
-            new Location("odense-house2", 55.4038, 10.4024),
+            new Location("aarhus-house1", "gw-aarhus-house1", 56.1629, 10.2039),
+            new Location("odense-house2", "gw-odense-house2", 55.4038, 10.4024),
         };
         _locationProvider.GetLocations().Returns(locations);
         _openMeteoApiClient.GetOutdoorClimateAsync(56.1629, 10.2039, Arg.Any<CancellationToken>())
@@ -59,8 +59,8 @@ public class OutdoorClimateIngestionServiceTests
     {
         var locations = new[]
         {
-            new Location("aarhus-house1", 56.1629, 10.2039),
-            new Location("odense-house2", 55.4038, 10.4024),
+            new Location("aarhus-house1", "gw-aarhus-house1", 56.1629, 10.2039),
+            new Location("odense-house2", "gw-odense-house2", 55.4038, 10.4024),
         };
         _locationProvider.GetLocations().Returns(locations);
         _openMeteoApiClient.GetOutdoorClimateAsync(56.1629, 10.2039, Arg.Any<CancellationToken>()).Returns("{\"aarhus\":true}");

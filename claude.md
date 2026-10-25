@@ -108,7 +108,7 @@
 * Enforce **Managed Identity** for securing Azure SQL Database access.
 * Provision a Shared Resource Group containing the Terraform State Blob Storage Container and the central Azure Key Vault.
 
-### - [ ] Feature 4: CI/CD Pipeline (GitHub Actions)
+### - [x] Feature 4: CI/CD Pipeline (GitHub Actions)
 * Configure GitHub Actions workflows for automated continuous integration and delivery.
 * Orchestrate Terraform infrastructure deployment steps.
 * Build and deploy the .NET 10 Function app artifact to Azure.

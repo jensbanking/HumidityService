@@ -1,5 +1,5 @@
 # Azure Communication Services Email for the humidity alerts (Feature 5). An Azure-managed email
-# domain (DoNotReply@<guid>.azurecomm.net) needs no DNS setup and its low sending limits are far
+# domain (<username>@<guid>.azurecomm.net) needs no DNS setup and its low sending limits are far
 # above the at-most-one-email-per-location-per-day the alerts send.
 resource "azurerm_communication_service" "this" {
   name                = "acs-${var.name_prefix}"
@@ -23,6 +23,14 @@ resource "azurerm_email_communication_service_domain" "azure_managed" {
   domain_management = "AzureManaged"
 
   tags = var.tags
+}
+
+# Dedicated sender so alerts arrive from "Humidity service" rather than the domain's built-in
+# DoNotReply sender, which Azure creates with the domain and Terraform therefore can't own.
+resource "azurerm_email_communication_service_domain_sender_username" "alerts" {
+  name                    = var.sender_username
+  email_service_domain_id = azurerm_email_communication_service_domain.azure_managed.id
+  display_name            = var.sender_display_name
 }
 
 resource "azurerm_communication_service_email_domain_association" "this" {

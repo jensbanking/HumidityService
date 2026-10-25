@@ -14,6 +14,18 @@ variable "data_location" {
   default     = "Europe"
 }
 
+variable "sender_username" {
+  description = "Username part of the alert sender address (<username>@<azure-managed-domain>)."
+  type        = string
+  default     = "humidity"
+}
+
+variable "sender_display_name" {
+  description = "Display name recipients see as the alert email's sender."
+  type        = string
+  default     = "Humidity service"
+}
+
 variable "tags" {
   description = "Common tags applied to Communication Services resources."
   type        = map(string)

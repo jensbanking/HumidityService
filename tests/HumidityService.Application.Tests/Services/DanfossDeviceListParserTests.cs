@@ -68,6 +68,16 @@ public class DanfossDeviceListParserTests
     }
 
     [Fact]
+    public void GetRoomReadings_TrimsRoomNames()
+    {
+        const string json = """
+            {"result":[{"id":"rs-1","name":"  Badeværelset ","status":[{"code":"temp_current","value":136},{"code":"humidity_value","value":661}]}]}
+            """;
+
+        Assert.Equal("Badeværelset", Assert.Single(DanfossDeviceListParser.GetRoomReadings(json)).RoomName);
+    }
+
+    [Fact]
     public void GetRoomReadings_MissingResultArray_ThrowsJsonException()
     {
         Assert.Throws<JsonException>(() => DanfossDeviceListParser.GetRoomReadings("{\"devices\":[]}"));

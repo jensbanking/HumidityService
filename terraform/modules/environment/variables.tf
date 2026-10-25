@@ -94,7 +94,7 @@ variable "locations" {
 variable "humidity_alert_default_threshold_percent" {
   description = "Humidity limit (percent relative humidity) for rooms without a per-location override (Feature 5)."
   type        = number
-  default     = 75
+  default     = 70
 }
 
 variable "humidity_alert_recipients" {

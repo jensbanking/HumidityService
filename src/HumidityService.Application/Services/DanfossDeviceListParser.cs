@@ -37,6 +37,7 @@ public static class DanfossDeviceListParser
     /// <summary>
     /// Returns the current temperature and humidity of every device that reports both
     /// <c>temp_current</c> and <c>humidity_value</c>, i.e. the rooms that have a humidity sensor.
+    /// Room names are trimmed, since names set in the Danfoss app can carry stray spaces.
     /// </summary>
     /// <param name="rawJson">The unmodified raw JSON response body.</param>
     /// <exception cref="JsonException">The body is not valid JSON or has no <c>result</c> array.</exception>
@@ -76,7 +77,7 @@ public static class DanfossDeviceListParser
 
             if (temperature is not null && humidity is not null)
             {
-                readings.Add(new RoomClimateReading(name.GetString()!, temperature.Value, humidity.Value));
+                readings.Add(new RoomClimateReading(name.GetString()!.Trim(), temperature.Value, humidity.Value));
             }
         }
 

@@ -94,8 +94,10 @@ public sealed class HumidityAlertService : IHumidityAlertService
         }
 
         var roomNames = readings.Select(r => r.RoomName).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var (roomName, limit) in location.HumidityThresholds)
+        foreach (var (key, limit) in location.HumidityThresholds)
         {
+            // Trimmed to match the trimmed room names from DanfossDeviceListParser.
+            var roomName = key.Trim();
             if (!roomNames.Contains(roomName))
             {
                 _logger.LogWarning(

@@ -113,7 +113,7 @@
 * Orchestrate Terraform infrastructure deployment steps.
 * Build and deploy the .NET 10 Function app artifact to Azure.
 * Database migrations are deliberately out of scope here — see Feature 7, which depends on the EF Core schema (Feature 5) existing first.
-* `development`/`test` deploy automatically; `staging`/`production` require manual approval (e.g. a GitHub Environments protection rule) before the deployment job runs.
+* Covers the `development` environment only (`deploy-development.yml`); `test`, `staging` and `production` are deferred to Feature 10.
 
 ### - [ ] Feature 5: Data Warehouse Design (EF Core)
 * Model a Relational Star Schema using Entity Framework Core code-first approach.
@@ -134,7 +134,7 @@
 ### - [ ] Feature 7: CI/CD Database Migration Pipeline
 * Extend the Feature 4 GitHub Actions pipeline to execute Entity Framework Core database migrations against target databases, once Feature 5 (Data Warehouse schema) and Feature 6 (ETL logic) exist.
 * Resolve the `manage_database_user = false` gap in the Terraform SQL module (see `terraform/README.md`, "What's still open") so the Function App's managed identity can authenticate to Azure SQL non-interactively.
-* Decide and implement migration cadence/safety — e.g. run only on schema-changing deploys. Applies the same manual-approval gate as Feature 4 for `staging`/`production`.
+* Decide and implement migration cadence/safety — e.g. run only on schema-changing deploys. Applies the same manual-approval gate as Feature 10 for `staging`/`production`.
 * Resolves the open decision under Feature 6 about DWH sync cadence vs. serverless SQL auto-pause: migrations/sync run on this pipeline's own schedule, decoupled from the hourly ingestion trigger.
 
 ### - [ ] Feature 8: Monitoring & Alerting
@@ -146,3 +146,9 @@
 * Enforce request payload validation on incoming API schemas.
 * Intercept and log invalid or malformed data records without halting the application pipeline.
 * Route corrupt or unparseable source files to a dedicated blob storage container called `dead-letter`.
+
+### - [ ] Feature 10: CI/CD for Remaining Environments (GitHub Actions)
+* Extend the Feature 4 pipeline (today `development` only) to the `test`, `staging` and `production` environments.
+* Refactor `deploy-development.yml` into a reusable workflow called once per environment, rather than duplicating it four times.
+* `development`/`test` deploy automatically; `staging`/`production` require manual approval (e.g. a GitHub Environments protection rule) before the deployment job runs.
+* Provision the per-environment GitHub Environments, secrets and Azure federated credentials/role assignments each deployment needs.

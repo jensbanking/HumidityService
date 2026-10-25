@@ -117,21 +117,12 @@
 * Covers the `development` environment only (`deploy-development.yml`); `test`, `staging` and `production` are deferred to Feature 11.
 
 ### - [ ] Feature 5: Humidity Alert Email Notifications (Azure Communication Services)
-* Check indoor humidity immediately after each location's Danfoss Ally response has been persisted (Feature 1), i.e. once per hour per location, as part of the same indoor ingestion run.
-* Evaluate only rooms that have a humidity sensor: devices whose `status` array reports `humidity_value` (today the `Danfoss Ally™ Room Sensor` devices). Use the device `name` as the room name; `temp_current` and `humidity_value` are scaled by 10 in the raw response (e.g. `597` = 59.7 %).
-* Humidity threshold (percent relative humidity) is configurable at two levels:
-  * a **global default** per environment (initially `75`), and
-  * an optional **per-room override** in the location's static config entry (see Location Configuration), keyed by room name (the Danfoss device `name`, matched case-insensitively), e.g. a higher limit for a basement room where raising the temperature isn't an option. Renaming a room in the Danfoss app means updating its key here too; log a warning when an override key matches no room.
-  * A room is above threshold when its humidity is `>=` its effective threshold (override if set, otherwise the global default).
-* When at least one room in a location is above its threshold, send one email for that location via **Azure Communication Services (ACS) Email**. No email is sent when every room is below its threshold.
-* Recipients are configurable (a list of email addresses per environment); the sender address is configurable and belongs to the environment's ACS email domain.
-* Subject: `Fugtigheds alarm fra {location}`, where `{location}` is the location's `slug`.
-* Body (HTML): a list of every room in the location that has a humidity sensor, with room name, temperature (°C) and humidity (%). Rooms above their threshold are shown in **bold**.
-* Isolation: a failure while evaluating or sending the alert for one location is logged with context and must neither fail the already-persisted blob nor block ingestion or alerting for the other locations.
-* Authenticate to ACS with **Managed Identity** where supported; any remaining secret (e.g. a connection string) lives in Key Vault. Apply a Polly retry policy to the send call.
-* Extend Terraform (Feature 3) with the per-environment ACS resource, Email Communication Service and email domain, plus the Function App app settings for threshold, recipients and sender.
-* Throttling: send **at most one alert email per location per calendar day** (`Europe/Copenhagen`). The first hourly check of the day that finds a room at or above its threshold sends the email; later checks that day send nothing, even if more rooms cross. If rooms are still above their threshold the next day, a new email is sent. Persist the last-sent date per location (e.g. a small blob or table entry) so throttling survives restarts and scale-out.
-* Configuration (app settings): `HumidityAlert__DefaultThresholdPercent` (global default), `HumidityAlert__Recipients` (JSON array of email addresses), `HumidityAlert__SenderAddress`, `CommunicationServices__Endpoint` (ACS endpoint, Managed Identity).
+* Right after each location's Danfoss Ally response is persisted (hourly), check the humidity of every room with a humidity sensor (`humidity_value`, scaled by 10 like `temp_current`).
+* A room alerts when its humidity is `>=` its limit: a global default (`75` %), or an optional per-room override (`humidityThresholds` in the location config, keyed case-insensitively by Danfoss room name).
+* Send at most one email per location per day (`Europe/Copenhagen`) via **Azure Communication Services (ACS) Email** to a configurable recipient list; persist the last-sent date so the limit survives restarts.
+* Subject `Fugtigheds alarm fra {location}`; body is a table (`Rum`, `Temp`, `Fugt`) of all rooms with a humidity sensor, rooms over their limit in **bold red**.
+* An alert failure is logged and never affects persisted data or the other locations.
+* Managed Identity to ACS, Polly retry on send; Terraform provisions ACS, its email domain and the `HumidityAlert__*` / `CommunicationServices__Endpoint` app settings.
 
 ### - [ ] Feature 6: Data Warehouse Design (EF Core)
 * Model a Relational Star Schema using Entity Framework Core code-first approach.

@@ -74,7 +74,7 @@ Every hour, right after a location's Danfoss Ally response has been persisted, t
 * **Room names:** per-room limits are keyed by the room's name in the Danfoss app (case-insensitive). If you rename a room there, update its key in `humidityThresholds` too.
 * **Recipients:** a configurable list of email addresses.
 * **Subject:** `Fugtigheds alarm fra {location}`, where `{location}` is the location's slug.
-* **Body:** a list of all rooms with a humidity sensor showing room name, temperature and humidity. Rooms at or above their limit are shown in bold.
+* **Body:** a table with the columns `Rum`, `Temp` and `Fugt`, one row per room with a humidity sensor. Rows for rooms at or above their limit are shown in bold red.
 * **Isolation:** a failed alert is logged and never affects the persisted data or the other locations.
 
 Configuration:
@@ -92,11 +92,14 @@ In Azure, recipients come from the GitHub Actions variable `HUMIDITY_ALERT_RECIP
 Example email body:
 
 > Fugtighedsmålinger for lyngby:
-> * **Kælder: 16,1 °C, 81,5 %**
-> * Soveværelse: 19,8 °C, 59,7 %
-> * Stue: 21,4 °C, 58,2 %
 >
-> Rum med fed har nået deres grænseværdi.
+> | Rum | Temp | Fugt |
+> |---|--:|--:|
+> | **Kælder** | **16,1 °C** | **81,5 %** |
+> | Soveværelse | 19,8 °C | 59,7 % |
+> | Stue | 21,4 °C | 58,2 % |
+>
+> Rum med rød fed skrift har nået deres grænseværdi.
 
 ## Data Warehouse Schema
 
@@ -131,7 +134,7 @@ Ensure Azurite is running for local blob management. Create a `local.settings.js
     "DanfossApi__BaseUrl": "https://api.danfoss.com",
     "OpenMeteoApi__BaseUrl": "https://api.open-meteo.com",
     "Locations": "[{\"slug\":\"aarhus-house1\",\"danfossGatewayId\":\"<gateway-id>\",\"latitude\":56.1629,\"longitude\":10.2039,\"humidityThresholds\":{\"Kælder\":85}}]",
-    "HumidityAlert__DefaultThresholdPercent": "75",
+    "HumidityAlert__DefaultThresholdPercent": "55",
     "HumidityAlert__Recipients": "[\"you@example.com\"]",
     "HumidityAlert__SenderAddress": "DoNotReply@<your-acs-domain>.azurecomm.net",
     "CommunicationServices__Endpoint": "https://<your-acs-resource>.communication.azure.com",

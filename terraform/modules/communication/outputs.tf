@@ -10,5 +10,5 @@ output "endpoint" {
 
 output "sender_address" {
   description = "Sender address on the Azure-managed email domain (HumidityAlert__SenderAddress)."
-  value       = "DoNotReply@${azurerm_email_communication_service_domain.azure_managed.mail_from_sender_domain}"
+  value       = "${azurerm_email_communication_service_domain_sender_username.alerts.name}@${azurerm_email_communication_service_domain.azure_managed.mail_from_sender_domain}"
 }

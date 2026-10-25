@@ -16,7 +16,7 @@ public class ConfigurationHumidityAlertSettingsTests
     {
         var settings = ConfigurationHumidityAlertSettings.Create(Build());
 
-        Assert.Equal(75, settings.DefaultThresholdPercent);
+        Assert.Equal(70, settings.DefaultThresholdPercent);
         Assert.Empty(settings.Recipients);
     }
 

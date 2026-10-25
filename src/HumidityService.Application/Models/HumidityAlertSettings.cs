@@ -10,5 +10,5 @@ namespace HumidityService.Application.Models;
 public sealed record HumidityAlertSettings(double DefaultThresholdPercent, IReadOnlyList<string> Recipients)
 {
     /// <summary>The default limit used when none is configured.</summary>
-    public const double DefaultThreshold = 75;
+    public const double DefaultThreshold = 70;
 }

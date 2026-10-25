@@ -29,6 +29,9 @@ module "environment" {
       danfossGatewayId = "bfc446bebf1c46ce49vzaq"
       latitude         = 56.864
       longitude        = 9.951
+      humidityThresholds = {
+        "Kælder" = 75
+      }
     },
   ]
 

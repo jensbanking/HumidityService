@@ -69,7 +69,7 @@ flowchart LR
 
 Every hour, right after a location's Danfoss Ally response has been persisted, the service checks the humidity of each room that has a humidity sensor (the Danfoss Ally Room Sensors).
 
-* **Limit:** a global default (`75` % relative humidity) applies to all rooms. A location can override it per room via `humidityThresholds` in its `Locations` entry, e.g. a higher limit for a basement where raising the temperature isn't an option.
+* **Limit:** a global default (`70` % relative humidity) applies to all rooms. A location can override it per room via `humidityThresholds` in its `Locations` entry, e.g. a higher limit for a basement where raising the temperature isn't an option.
 * **When:** at most one email per location per day. The first hourly check of the day that finds a room at or above its limit sends the email; later checks that day send nothing. If a room is still above its limit the next day, a new email is sent. Nothing is sent when every room is below.
 * **Room names:** per-room limits are keyed by the room's name in the Danfoss app (case-insensitive). If you rename a room there, update its key in `humidityThresholds` too.
 * **Recipients:** a configurable list of email addresses.
@@ -81,9 +81,9 @@ Configuration:
 
 | Setting | Purpose |
 |---|---|
-| `HumidityAlert__DefaultThresholdPercent` | Global limit, default `75` |
+| `HumidityAlert__DefaultThresholdPercent` | Global limit, default `70` |
 | `HumidityAlert__Recipients` | JSON array of email addresses. Empty means no email is sent (the breach is still logged) |
-| `HumidityAlert__SenderAddress` | Sender on the ACS email domain (set by Terraform) |
+| `HumidityAlert__SenderAddress` | Sender on the ACS email domain, shown as "Humidity service" (set by Terraform) |
 | `CommunicationServices__Endpoint` | ACS endpoint, used with Managed Identity (set by Terraform) |
 | `humidityThresholds` in `Locations` | Optional per-room limits, e.g. `{"Kælder":85}` |
 
@@ -136,7 +136,7 @@ Ensure Azurite is running for local blob management. Create a `local.settings.js
     "Locations": "[{\"slug\":\"aarhus-house1\",\"danfossGatewayId\":\"<gateway-id>\",\"latitude\":56.1629,\"longitude\":10.2039,\"humidityThresholds\":{\"Kælder\":85}}]",
     "HumidityAlert__DefaultThresholdPercent": "55",
     "HumidityAlert__Recipients": "[\"you@example.com\"]",
-    "HumidityAlert__SenderAddress": "DoNotReply@<your-acs-domain>.azurecomm.net",
+    "HumidityAlert__SenderAddress": "humidity@<your-acs-domain>.azurecomm.net",
     "CommunicationServices__Endpoint": "https://<your-acs-resource>.communication.azure.com",
     "SqlConnectionString": "Server=localhost;Database=HumidityDwh;Trusted_Connection=True;"
   }

@@ -87,6 +87,17 @@ public class HumidityAlertServiceTests
     }
 
     [Fact]
+    public async Task CheckAndNotifyAsync_RoomNameAndOverrideKeyWithStraySpaces_StillMatch()
+    {
+        var location = CreateLocation(new Dictionary<string, double> { [" Badeværelset  "] = 80 });
+
+        await CreateSut().CheckAndNotifyAsync(location, Devices(("Badeværelset ", 136, 790)), CancellationToken.None);
+
+        await _emailSender.DidNotReceive().SendAsync(Arg.Any<EmailMessage>(), Arg.Any<CancellationToken>());
+        _logger.DidNotReceive().Log(LogLevel.Warning, Arg.Any<EventId>(), Arg.Any<object>(), Arg.Any<Exception?>(), Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
     public async Task CheckAndNotifyAsync_AlreadySentToday_SendsNothing()
     {
         _stateStore.GetLastSentDateAsync("lyngby", Arg.Any<CancellationToken>()).Returns(TodayCopenhagen);

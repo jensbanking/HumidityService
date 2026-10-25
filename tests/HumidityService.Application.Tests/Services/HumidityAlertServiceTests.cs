@@ -38,6 +38,10 @@ public class HumidityAlertServiceTests
             .Prepend("{\"id\":\"gw-1\",\"name\":\"Gateway\",\"status\":[]}"))
         + "]}";
 
+    // The plain-text body marks rooms at or above their limit; the HTML layout is covered by HumidityAlertEmailBuilderTests.
+    private static bool IsMarkedAbove(EmailMessage message, string roomName) =>
+        message.PlainTextBody.Split(Environment.NewLine).Single(line => line.StartsWith(roomName + " ")).EndsWith("(over grænsen)");
+
     [Fact]
     public async Task CheckAndNotifyAsync_AllRoomsBelowLimit_SendsNothing()
     {
@@ -56,8 +60,8 @@ public class HumidityAlertServiceTests
             Arg.Is<EmailMessage>(m =>
                 m.Subject == "Fugtigheds alarm fra lyngby" &&
                 m.Recipients.SequenceEqual(new[] { "a@example.com", "b@example.com" }) &&
-                m.HtmlBody.Contains("<strong>Kælder: 16,1 °C, 75,0 %</strong>") &&
-                m.HtmlBody.Contains("<li>Stue: 21,4 °C, 58,2 %</li>")),
+                IsMarkedAbove(m, "Kælder") &&
+                !IsMarkedAbove(m, "Stue")),
             Arg.Any<CancellationToken>());
         await _stateStore.Received(1).SetLastSentDateAsync("lyngby", TodayCopenhagen, Arg.Any<CancellationToken>());
     }
@@ -79,7 +83,7 @@ public class HumidityAlertServiceTests
 
         await CreateSut().CheckAndNotifyAsync(location, Devices(("Stue", 214, 582)), CancellationToken.None);
 
-        await _emailSender.Received(1).SendAsync(Arg.Is<EmailMessage>(m => m.HtmlBody.Contains("<strong>Stue")), Arg.Any<CancellationToken>());
+        await _emailSender.Received(1).SendAsync(Arg.Is<EmailMessage>(m => IsMarkedAbove(m, "Stue")), Arg.Any<CancellationToken>());
     }
 
     [Fact]

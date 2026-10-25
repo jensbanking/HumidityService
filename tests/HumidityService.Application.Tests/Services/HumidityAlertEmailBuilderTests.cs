@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using HumidityService.Application.Models;
 using HumidityService.Application.Services;
 using HumidityService.Domain.Models;
@@ -13,6 +14,14 @@ public class HumidityAlertEmailBuilderTests
         new(new RoomClimateReading("Stue", 21.4, 58.2), 75),
     ];
 
+    // Row cells as (style, text) pairs, ignoring the exact inline styling.
+    private static List<(string Style, string Text)> Cells(string html, string firstCellText)
+    {
+        var row = Regex.Matches(html, "<tr>(.*?)</tr>").Select(m => m.Groups[1].Value)
+            .Single(r => r.Contains($">{firstCellText}</td>"));
+        return Regex.Matches(row, "<td style=\"([^\"]*)\">(.*?)</td>").Select(m => (m.Groups[1].Value, m.Groups[2].Value)).ToList();
+    }
+
     [Fact]
     public void Build_SetsSubjectAndRecipients()
     {
@@ -23,21 +32,50 @@ public class HumidityAlertEmailBuilderTests
     }
 
     [Fact]
-    public void Build_HtmlListsEveryRoomAndBoldsRoomsAboveLimit()
+    public void Build_HtmlIsTableWithRumTempFugtHeaders()
     {
         var message = HumidityAlertEmailBuilder.Build("lyngby", Rooms, ["a@example.com"]);
 
-        Assert.Contains("<li><strong>Kælder: 16,1 °C, 81,5 %</strong></li>", message.HtmlBody);
-        Assert.Contains("<li>Stue: 21,4 °C, 58,2 %</li>", message.HtmlBody);
+        var headers = Regex.Matches(message.HtmlBody, "<th[^>]*>(.*?)</th>").Select(m => m.Groups[1].Value);
+        Assert.Equal(new[] { "Rum", "Temp", "Fugt" }, headers);
+        Assert.DoesNotContain("<li>", message.HtmlBody);
     }
 
     [Fact]
-    public void Build_PlainTextMarksRoomsAboveLimit()
+    public void Build_HtmlHasOneRowPerRoomWithFormattedValues()
     {
         var message = HumidityAlertEmailBuilder.Build("lyngby", Rooms, ["a@example.com"]);
 
-        Assert.Contains("- Kælder: 16,1 °C, 81,5 % (over grænsen)", message.PlainTextBody);
-        Assert.Contains("- Stue: 21,4 °C, 58,2 %" + Environment.NewLine, message.PlainTextBody);
+        Assert.Equal(new[] { "Kælder", "16,1 °C", "81,5 %" }, Cells(message.HtmlBody, "Kælder").Select(c => c.Text));
+        Assert.Equal(new[] { "Stue", "21,4 °C", "58,2 %" }, Cells(message.HtmlBody, "Stue").Select(c => c.Text));
+    }
+
+    [Fact]
+    public void Build_HtmlBoldsAndColoursRedEveryCellOfRoomsAboveLimitOnly()
+    {
+        var message = HumidityAlertEmailBuilder.Build("lyngby", Rooms, ["a@example.com"]);
+
+        Assert.All(Cells(message.HtmlBody, "Kælder"), c =>
+        {
+            Assert.Contains("font-weight:bold", c.Style);
+            Assert.Contains("color:#c00000", c.Style);
+        });
+        Assert.All(Cells(message.HtmlBody, "Stue"), c =>
+        {
+            Assert.DoesNotContain("font-weight:bold", c.Style);
+            Assert.DoesNotContain("color:", c.Style);
+        });
+    }
+
+    [Fact]
+    public void Build_PlainTextIsAlignedTableMarkingRoomsAboveLimit()
+    {
+        var message = HumidityAlertEmailBuilder.Build("lyngby", Rooms, ["a@example.com"]);
+        var lines = message.PlainTextBody.Split(Environment.NewLine);
+
+        Assert.Contains("Rum        Temp    Fugt", lines);
+        Assert.Contains("Kælder  16,1 °C  81,5 %  (over grænsen)", lines);
+        Assert.Contains("Stue    21,4 °C  58,2 %", lines);
     }
 
     [Fact]

@@ -23,7 +23,7 @@ module "environment" {
 
   locations = [
     {
-      slug             = "outdoor-lyngby"
+      slug             = "lyngby"
       danfossGatewayId = "bfc446bebf1c46ce49vzaq"
       latitude         = 56.864
       longitude        = 9.951

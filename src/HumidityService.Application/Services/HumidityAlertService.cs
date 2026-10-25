@@ -66,7 +66,8 @@ public sealed class HumidityAlertService : IHumidityAlertService
             return;
         }
 
-        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(_timeProvider.GetUtcNow(), AlertTimeZone).DateTime);
+        var nowLocal = TimeZoneInfo.ConvertTime(_timeProvider.GetUtcNow(), AlertTimeZone).DateTime;
+        var today = DateOnly.FromDateTime(nowLocal);
         if (await _stateStore.GetLastSentDateAsync(location.Slug, cancellationToken) == today)
         {
             _logger.LogInformation(
@@ -76,7 +77,7 @@ public sealed class HumidityAlertService : IHumidityAlertService
             return;
         }
 
-        await _emailSender.SendAsync(HumidityAlertEmailBuilder.Build(location.Slug, rooms, _settings.Recipients), cancellationToken);
+        await _emailSender.SendAsync(HumidityAlertEmailBuilder.Build(location.Slug, nowLocal, rooms, _settings.Recipients), cancellationToken);
         await _stateStore.SetLastSentDateAsync(location.Slug, today, cancellationToken);
 
         _logger.LogInformation(

@@ -116,11 +116,11 @@
 * Database migrations are deliberately out of scope here — see Feature 8, which depends on the EF Core schema (Feature 6) existing first.
 * Covers the `development` environment only (`deploy-development.yml`); `test`, `staging` and `production` are deferred to Feature 11.
 
-### - [ ] Feature 5: Humidity Alert Email Notifications (Azure Communication Services)
+### - [x] Feature 5: Humidity Alert Email Notifications (Azure Communication Services)
 * Right after each location's Danfoss Ally response is persisted (hourly), check the humidity of every room with a humidity sensor (`humidity_value`, scaled by 10 like `temp_current`).
 * A room alerts when its humidity is `>=` its limit: a global default (`70` %), or an optional per-room override (`humidityThresholds` in the location config, keyed case-insensitively by Danfoss room name).
 * Send at most one email per location per day (`Europe/Copenhagen`) via **Azure Communication Services (ACS) Email** to a configurable recipient list; persist the last-sent date so the limit survives restarts.
-* Subject `Fugtigheds alarm fra {location}`; body is a table (`Rum`, `Temp`, `Fugt`) of all rooms with a humidity sensor, rooms over their limit in **bold red**.
+* Subject `Fugtigheds alarm fra {location}`; body starts `Fugtighedsmålinger for {location} {Danish date and time}`, then a table (`Rum`, `Temp`, `Fugt %`) of all rooms with a humidity sensor, rooms over their limit in **bold red**.
 * An alert failure is logged and never affects persisted data or the other locations.
 * Managed Identity to ACS, Polly retry on send; Terraform provisions ACS, its email domain and the `HumidityAlert__*` / `CommunicationServices__Endpoint` app settings.
 

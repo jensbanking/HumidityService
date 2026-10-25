@@ -74,7 +74,7 @@ Every hour, right after a location's Danfoss Ally response has been persisted, t
 * **Room names:** per-room limits are keyed by the room's name in the Danfoss app (case-insensitive). If you rename a room there, update its key in `humidityThresholds` too.
 * **Recipients:** a configurable list of email addresses.
 * **Subject:** `Fugtigheds alarm fra {location}`, where `{location}` is the location's slug.
-* **Body:** a table with the columns `Rum`, `Temp` and `Fugt`, one row per room with a humidity sensor. Rows for rooms at or above their limit are shown in bold red.
+* **Body:** the heading `Fugtighedsmålinger for {location} {date and time}` (Danish time, e.g. `26. Nov 2026 kl. 00:00`), then a table with the columns `Rum`, `Temp` and `Fugt %`, one row per room with a humidity sensor. Rows for rooms at or above their limit are shown in bold red.
 * **Isolation:** a failed alert is logged and never affects the persisted data or the other locations.
 
 Configuration:
@@ -91,9 +91,9 @@ In Azure, recipients come from the GitHub Actions variable `HUMIDITY_ALERT_RECIP
 
 Example email body:
 
-> Fugtighedsmålinger for lyngby:
+> Fugtighedsmålinger for lyngby 26. Nov 2026 kl. 00:00
 >
-> | Rum | Temp | Fugt |
+> | Rum | Temp | Fugt % |
 > |---|--:|--:|
 > | **Kælder** | **16,1 °C** | **81,5 %** |
 > | Soveværelse | 19,8 °C | 59,7 % |

@@ -21,6 +21,8 @@ module "environment" {
   danfoss_client_id     = var.danfoss_client_id
   danfoss_client_secret = var.danfoss_client_secret
 
+  humidity_alert_recipients = var.humidity_alert_recipients
+
   locations = [
     {
       slug             = "lyngby"

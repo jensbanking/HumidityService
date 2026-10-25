@@ -51,6 +51,14 @@ public sealed class ConfigurationLocationProvider : ILocationProvider
             {
                 throw new InvalidOperationException($"Location '{location.Slug}' is missing a required 'danfossGatewayId' value.");
             }
+
+            foreach (var (roomName, limit) in location.HumidityThresholds ?? new Dictionary<string, double>())
+            {
+                if (limit is <= 0 or > 100)
+                {
+                    throw new InvalidOperationException($"Location '{location.Slug}' has humidity limit {limit} for room '{roomName}'; it must be greater than 0 and at most 100.");
+                }
+            }
         }
 
         _locations = parsed;

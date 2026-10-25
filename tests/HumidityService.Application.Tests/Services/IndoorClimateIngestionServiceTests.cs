@@ -15,10 +15,11 @@ public class IndoorClimateIngestionServiceTests
     private readonly IDanfossAuthClient _authClient = Substitute.For<IDanfossAuthClient>();
     private readonly IDanfossClimateApiClient _climateApiClient = Substitute.For<IDanfossClimateApiClient>();
     private readonly IRawClimateBlobStorage _blobStorage = Substitute.For<IRawClimateBlobStorage>();
+    private readonly IHumidityAlertService _humidityAlertService = Substitute.For<IHumidityAlertService>();
     private readonly ILogger<IndoorClimateIngestionService> _logger = Substitute.For<ILogger<IndoorClimateIngestionService>>();
 
     private IndoorClimateIngestionService CreateSut() =>
-        new(_locationProvider, _authClient, _climateApiClient, _blobStorage, _logger);
+        new(_locationProvider, _authClient, _climateApiClient, _blobStorage, _humidityAlertService, _logger);
 
     private void GivenDeviceList(string json)
     {
@@ -75,6 +76,42 @@ public class IndoorClimateIngestionServiceTests
         await CreateSut().IngestAsync(CancellationToken.None);
 
         await _blobStorage.Received(1).SaveRawReadingAsync("odense-house2", ClimateReadingType.Indoor, Arg.Any<DateTimeOffset>(), DevicesJson, Arg.Any<CancellationToken>());
+        await _humidityAlertService.DidNotReceive().CheckAndNotifyAsync(Arg.Is<Location>(l => l.Slug == "aarhus-house1"), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _humidityAlertService.Received(1).CheckAndNotifyAsync(Arg.Is<Location>(l => l.Slug == "odense-house2"), DevicesJson, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task IngestAsync_Success_RunsHumidityAlertCheckAfterSavingEachLocation()
+    {
+        var location = new Location("aarhus-house1", "gw-1", 56.1629, 10.2039);
+        _locationProvider.GetLocations().Returns(new[] { location });
+        GivenDeviceList(DevicesJson);
+
+        await CreateSut().IngestAsync(CancellationToken.None);
+
+        Received.InOrder(() =>
+        {
+            _blobStorage.SaveRawReadingAsync("aarhus-house1", ClimateReadingType.Indoor, Arg.Any<DateTimeOffset>(), DevicesJson, Arg.Any<CancellationToken>());
+            _humidityAlertService.CheckAndNotifyAsync(location, DevicesJson, Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task IngestAsync_HumidityAlertFails_StillSavesAndChecksRemainingLocations()
+    {
+        _locationProvider.GetLocations().Returns(new[]
+        {
+            new Location("aarhus-house1", "gw-1", 56.1629, 10.2039),
+            new Location("odense-house2", "gw-2", 55.4038, 10.4024),
+        });
+        GivenDeviceList(DevicesJson);
+        _humidityAlertService.CheckAndNotifyAsync(Arg.Is<Location>(l => l.Slug == "aarhus-house1"), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns<Task>(_ => throw new InvalidOperationException("email down"));
+
+        await CreateSut().IngestAsync(CancellationToken.None);
+
+        await _blobStorage.Received(1).SaveRawReadingAsync("odense-house2", ClimateReadingType.Indoor, Arg.Any<DateTimeOffset>(), DevicesJson, Arg.Any<CancellationToken>());
+        await _humidityAlertService.Received(1).CheckAndNotifyAsync(Arg.Is<Location>(l => l.Slug == "odense-house2"), DevicesJson, Arg.Any<CancellationToken>());
     }
 
     [Fact]

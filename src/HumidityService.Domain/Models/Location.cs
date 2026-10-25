@@ -9,4 +9,13 @@ namespace HumidityService.Domain.Models;
 /// <param name="DanfossGatewayId">Device id of the location's Danfoss Ally gateway, as listed in the <c>/ally/devices</c> response.</param>
 /// <param name="Latitude">Latitude used for the Open-Meteo outdoor query.</param>
 /// <param name="Longitude">Longitude used for the Open-Meteo outdoor query.</param>
-public sealed record Location(string Slug, string DanfossGatewayId, double Latitude, double Longitude);
+/// <param name="HumidityThresholds">
+/// Optional per-room humidity alert limits (percent relative humidity) keyed by room name,
+/// overriding the global default. <c>null</c> when the location has no overrides.
+/// </param>
+public sealed record Location(
+    string Slug,
+    string DanfossGatewayId,
+    double Latitude,
+    double Longitude,
+    IReadOnlyDictionary<string, double>? HumidityThresholds = null);

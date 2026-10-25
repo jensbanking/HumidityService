@@ -86,7 +86,21 @@ variable "locations" {
     danfossGatewayId = string
     latitude         = number
     longitude        = number
+    # Per-room humidity alert limits keyed by Danfoss room name, overriding the global default.
+    humidityThresholds = optional(map(number))
   }))
+}
+
+variable "humidity_alert_default_threshold_percent" {
+  description = "Humidity limit (percent relative humidity) for rooms without a per-location override (Feature 5)."
+  type        = number
+  default     = 75
+}
+
+variable "humidity_alert_recipients" {
+  description = "Email addresses that receive humidity alerts (Feature 5). Empty disables sending."
+  type        = list(string)
+  default     = []
 }
 
 variable "tags" {

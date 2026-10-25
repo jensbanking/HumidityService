@@ -14,4 +14,7 @@ public sealed class ClimateStorageOptions
 
     /// <summary>Container that raw indoor/outdoor climate readings are written to.</summary>
     public string ContainerName { get; init; } = "climate-readings";
+
+    /// <summary>Container that small state blobs (e.g. when a humidity alert was last sent) are written to.</summary>
+    public string AlertStateContainerName { get; init; } = "alert-state";
 }

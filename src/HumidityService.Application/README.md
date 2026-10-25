@@ -7,5 +7,5 @@ References: `HumidityService.Domain` only.
 Planned contents:
 - `IClimateApiClient` (indoor/outdoor), `IBlobStorageWriter`, `ILocationProvider` interfaces
 - DTOs for raw Danfoss / Open-Meteo payloads
-- Validators (FluentValidation) for Feature 8 (Data Quality & Governance)
-- ETL orchestration handlers (Feature 6)
+- Validators (FluentValidation) for Feature 10 (Data Quality & Governance)
+- ETL orchestration handlers (Feature 7)

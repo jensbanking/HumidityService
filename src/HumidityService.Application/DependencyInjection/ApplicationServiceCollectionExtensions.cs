@@ -1,6 +1,7 @@
 using HumidityService.Application.Interfaces;
 using HumidityService.Application.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace HumidityService.Application.DependencyInjection;
 
@@ -14,6 +15,8 @@ public static class ApplicationServiceCollectionExtensions
     {
         services.AddScoped<IIndoorClimateIngestionService, IndoorClimateIngestionService>();
         services.AddScoped<IOutdoorClimateIngestionService, OutdoorClimateIngestionService>();
+        services.AddScoped<IHumidityAlertService, HumidityAlertService>();
+        services.TryAddSingleton(TimeProvider.System);
 
         return services;
     }

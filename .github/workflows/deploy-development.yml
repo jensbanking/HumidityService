@@ -76,6 +76,7 @@ jobs:
       TF_VAR_sql_aad_admin_object_id: ${{ vars.SQL_AAD_ADMIN_OBJECT_ID }}
       TF_VAR_danfoss_client_id: ${{ secrets.DANFOSS_CLIENT_ID }}
       TF_VAR_danfoss_client_secret: ${{ secrets.DANFOSS_CLIENT_SECRET }}
+      TF_VAR_humidity_alert_recipients: ${{ vars.HUMIDITY_ALERT_RECIPIENTS || '[]' }}
     outputs:
       resource_group_name: ${{ steps.tf-outputs.outputs.resource_group_name }}
       function_app_name: ${{ steps.tf-outputs.outputs.function_app_name }}

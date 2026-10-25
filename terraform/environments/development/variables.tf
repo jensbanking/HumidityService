@@ -23,6 +23,12 @@ variable "sql_aad_admin_object_id" {
   type        = string
 }
 
+variable "humidity_alert_recipients" {
+  description = "Email addresses that receive humidity alerts. Supply via TF_VAR_humidity_alert_recipients (JSON list, e.g. [\"you@example.com\"]) so addresses stay out of source control; empty disables sending."
+  type        = list(string)
+  default     = []
+}
+
 variable "danfoss_client_id" {
   description = "Danfoss API OAuth client ID for this environment. Supply via TF_VAR_danfoss_client_id - never commit to terraform.tfvars."
   type        = string

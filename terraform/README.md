@@ -93,10 +93,20 @@ Setup per environment:
      `terraform init` with "Either an Access Key / SAS Token or the Resource Group for the Storage
      Account must be specified - or Azure AD Authentication must be enabled", since the service
      principal otherwise has no permission on `rg-humidity-shared` at all.
+   - `Role Based Access Control Administrator` on `rg-humidity-<env>`, ideally with a condition
+     limiting it to the roles Terraform assigns to the Function App's managed identity (`Storage
+     Blob Data Owner`, `Communication and Email Service Owner`). `Contributor` can't create role
+     assignments, so without this `terraform apply` fails with `AuthorizationFailed` on
+     `Microsoft.Authorization/roleAssignments/write` whenever a new one is added.
+   - Once per subscription, register the `Microsoft.Communication` resource provider
+     (`az provider register -n Microsoft.Communication`) - a resource-group-scoped service principal
+     can't register providers itself, and creating the ACS resources fails until it's registered.
 4. In GitHub: Settings → Environments → create/confirm `development`/`test`/`staging`/`production`.
    `staging` and `production` require a *Required reviewer* (manual approval before deploy runs).
    Add environment variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (plain
-   variables, not secrets - OIDC means there's no password to protect).
+   variables, not secrets - OIDC means there's no password to protect), and optionally
+   `HUMIDITY_ALERT_RECIPIENTS` as a JSON list (e.g. `["you@example.com"]`) - left unset, humidity
+   alerts are evaluated and logged but no email is sent.
 5. Workflow jobs need `permissions: id-token: write` and use `azure/login@v2` with those three
    variables.
 

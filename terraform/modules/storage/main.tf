@@ -34,6 +34,14 @@ resource "azurerm_storage_container" "climate_readings" {
 
 # Destination for corrupt/unparseable source files (Feature 10). Created now so app settings
 # referencing it are valid from day one, even though nothing writes to it until Feature 10.
+# Small state blobs, e.g. the date a humidity alert was last sent per location (Feature 5), kept
+# apart from the raw readings so ETL/backfill never has to skip them.
+resource "azurerm_storage_container" "alert_state" {
+  name                  = "alert-state"
+  storage_account_id    = azurerm_storage_account.this.id
+  container_access_type = "private"
+}
+
 resource "azurerm_storage_container" "dead_letter" {
   name                  = "dead-letter"
   storage_account_id    = azurerm_storage_account.this.id

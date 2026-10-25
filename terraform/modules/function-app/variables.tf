@@ -104,6 +104,26 @@ variable "locations_json" {
   type        = string
 }
 
+variable "humidity_alert_default_threshold_percent" {
+  description = "HumidityAlert__DefaultThresholdPercent: humidity limit (percent) for rooms without a per-location override."
+  type        = number
+}
+
+variable "humidity_alert_recipients" {
+  description = "HumidityAlert__Recipients: email addresses that receive humidity alerts (written as a JSON array)."
+  type        = list(string)
+}
+
+variable "humidity_alert_sender_address" {
+  description = "HumidityAlert__SenderAddress: sender address on the environment's ACS email domain."
+  type        = string
+}
+
+variable "communication_services_endpoint" {
+  description = "CommunicationServices__Endpoint: ACS endpoint the Function App sends email through with its managed identity."
+  type        = string
+}
+
 variable "app_insights_connection_string" {
   description = "Application Insights connection string for OpenTelemetry export."
   type        = string

@@ -74,6 +74,11 @@ resource "azurerm_function_app_flex_consumption" "this" {
     "SqlConnectionString" = "@Microsoft.KeyVault(SecretUri=${var.key_vault_uri}secrets/${var.sql_connection_string_secret_name}/)"
 
     "Locations" = var.locations_json
+
+    "HumidityAlert__DefaultThresholdPercent" = tostring(var.humidity_alert_default_threshold_percent)
+    "HumidityAlert__Recipients"              = jsonencode(var.humidity_alert_recipients)
+    "HumidityAlert__SenderAddress"           = var.humidity_alert_sender_address
+    "CommunicationServices__Endpoint"        = var.communication_services_endpoint
   }
 
   tags = var.tags

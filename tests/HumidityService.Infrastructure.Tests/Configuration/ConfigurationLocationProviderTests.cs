@@ -64,6 +64,41 @@ public class ConfigurationLocationProviderTests
         Assert.Throws<InvalidOperationException>(() => new ConfigurationLocationProvider(configuration));
     }
 
+    [Fact]
+    public void GetLocations_WithHumidityThresholds_ParsesThem()
+    {
+        var configuration = Substitute.For<IConfiguration>();
+        configuration["Locations"].Returns(
+            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.864,\"longitude\":9.951,\"humidityThresholds\":{\"Kælder\":85}}]");
+
+        var location = Assert.Single(new ConfigurationLocationProvider(configuration).GetLocations());
+
+        Assert.NotNull(location.HumidityThresholds);
+        Assert.Equal(85, location.HumidityThresholds["Kælder"]);
+    }
+
+    [Fact]
+    public void GetLocations_WithoutHumidityThresholds_LeavesThemNull()
+    {
+        var configuration = Substitute.For<IConfiguration>();
+        configuration["Locations"].Returns(
+            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.864,\"longitude\":9.951,\"humidityThresholds\":null}]");
+
+        Assert.Null(Assert.Single(new ConfigurationLocationProvider(configuration).GetLocations()).HumidityThresholds);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(101)]
+    public void Constructor_HumidityThresholdOutOfRange_Throws(int limit)
+    {
+        var configuration = Substitute.For<IConfiguration>();
+        configuration["Locations"].Returns(
+            $"[{{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.864,\"longitude\":9.951,\"humidityThresholds\":{{\"Kælder\":{limit}}}}}]");
+
+        Assert.Throws<InvalidOperationException>(() => new ConfigurationLocationProvider(configuration));
+    }
+
     [Theory]
     [InlineData("[{\"slug\":\"aarhus-house1\",\"latitude\":56.1629,\"longitude\":10.2039}]")]
     [InlineData("[{\"slug\":\"aarhus-house1\",\"danfossGatewayId\":\" \",\"latitude\":56.1629,\"longitude\":10.2039}]")]

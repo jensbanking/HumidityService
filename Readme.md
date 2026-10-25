@@ -77,12 +77,26 @@ Every hour, right after a location's Danfoss Ally response has been persisted, t
 * **Body:** a list of all rooms with a humidity sensor showing room name, temperature and humidity. Rooms at or above their limit are shown in bold.
 * **Isolation:** a failed alert is logged and never affects the persisted data or the other locations.
 
+Configuration:
+
+| Setting | Purpose |
+|---|---|
+| `HumidityAlert__DefaultThresholdPercent` | Global limit, default `75` |
+| `HumidityAlert__Recipients` | JSON array of email addresses. Empty means no email is sent (the breach is still logged) |
+| `HumidityAlert__SenderAddress` | Sender on the ACS email domain (set by Terraform) |
+| `CommunicationServices__Endpoint` | ACS endpoint, used with Managed Identity (set by Terraform) |
+| `humidityThresholds` in `Locations` | Optional per-room limits, e.g. `{"Kælder":85}` |
+
+In Azure, recipients come from the GitHub Actions variable `HUMIDITY_ALERT_RECIPIENTS` (e.g. `["you@example.com"]`) so addresses stay out of source control. The date of the last alert per location is stored as `alert-state/humidity-alert/{location}.txt`.
+
 Example email body:
 
 > Fugtighedsmålinger for lyngby:
-> * Stue: 21.4 °C, 58.2 %
-> * **Kælder: 16.1 °C, 81.5 %**
-> * Soveværelse: 19.8 °C, 59.7 %
+> * **Kælder: 16,1 °C, 81,5 %**
+> * Soveværelse: 19,8 °C, 59,7 %
+> * Stue: 21,4 °C, 58,2 %
+>
+> Rum med fed har nået deres grænseværdi.
 
 ## Data Warehouse Schema
 

@@ -65,6 +65,14 @@ module "sql" {
   tags                           = var.tags
 }
 
+module "communication" {
+  source = "../communication"
+
+  name_prefix         = local.name_prefix
+  resource_group_name = azurerm_resource_group.this.name
+  tags                = var.tags
+}
+
 # Secrets live in the shared central Key Vault (from terraform/bootstrap), namespaced per
 # environment, rather than a per-environment vault - matches CLAUDE.md's single central KV.
 resource "azurerm_key_vault_secret" "storage_connection_string" {
@@ -113,8 +121,12 @@ module "function_app" {
   danfoss_client_secret_secret_name     = azurerm_key_vault_secret.danfoss_client_secret.name
   sql_connection_string_secret_name     = "${var.environment}-sql-connection-string"
 
-  locations_json                 = jsonencode(var.locations)
-  app_insights_connection_string = azurerm_application_insights.this.connection_string
+  locations_json                           = jsonencode(var.locations)
+  humidity_alert_default_threshold_percent = var.humidity_alert_default_threshold_percent
+  humidity_alert_recipients                = var.humidity_alert_recipients
+  humidity_alert_sender_address            = module.communication.sender_address
+  communication_services_endpoint          = module.communication.endpoint
+  app_insights_connection_string           = azurerm_application_insights.this.connection_string
 
   tags = var.tags
 }
@@ -124,5 +136,13 @@ module "function_app" {
 resource "azurerm_role_assignment" "function_kv_secrets_user" {
   scope                = var.shared_key_vault_id
   role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.function_app.principal_id
+}
+
+# Lets the Function App's managed identity send humidity alert email through ACS (Entra ID auth
+# for ACS Email requires Microsoft.Communication/CommunicationServices/write on the resource).
+resource "azurerm_role_assignment" "function_acs_email_sender" {
+  scope                = module.communication.communication_service_id
+  role_definition_name = "Communication and Email Service Owner"
   principal_id         = module.function_app.principal_id
 }

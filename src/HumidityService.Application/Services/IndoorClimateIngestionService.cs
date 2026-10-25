@@ -7,7 +7,8 @@ namespace HumidityService.Application.Services;
 /// <summary>
 /// Default <see cref="IIndoorClimateIngestionService"/> implementation. Fetches an OAuth token
 /// and the Danfoss device list once per run, then persists the raw response for every configured
-/// location whose gateway appears in it. A failure for one location is logged and does not stop the others.
+/// location whose gateway appears in it, then runs the humidity alert check for that location.
+/// A failure for one location (or its alert) is logged and does not stop the others.
 /// </summary>
 public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionService
 {
@@ -15,6 +16,7 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
     private readonly IDanfossAuthClient _authClient;
     private readonly IDanfossClimateApiClient _climateApiClient;
     private readonly IRawClimateBlobStorage _blobStorage;
+    private readonly IHumidityAlertService _humidityAlertService;
     private readonly ILogger<IndoorClimateIngestionService> _logger;
 
     /// <summary>Initializes a new instance of <see cref="IndoorClimateIngestionService"/>.</summary>
@@ -23,12 +25,14 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
         IDanfossAuthClient authClient,
         IDanfossClimateApiClient climateApiClient,
         IRawClimateBlobStorage blobStorage,
+        IHumidityAlertService humidityAlertService,
         ILogger<IndoorClimateIngestionService> logger)
     {
         _locationProvider = locationProvider;
         _authClient = authClient;
         _climateApiClient = climateApiClient;
         _blobStorage = blobStorage;
+        _humidityAlertService = humidityAlertService;
         _logger = logger;
     }
 
@@ -80,6 +84,16 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "Failed to ingest the indoor climate reading for location {LocationSlug}.", location.Slug);
+                continue;
+            }
+
+            try
+            {
+                await _humidityAlertService.CheckAndNotifyAsync(location, rawJson, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Humidity alert check failed for location {LocationSlug}.", location.Slug);
             }
         }
     }

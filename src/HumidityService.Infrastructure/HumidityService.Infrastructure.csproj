@@ -20,6 +20,9 @@
     <!-- Blob Storage -->
     <PackageReference Include="Azure.Storage.Blobs" Version="12.24.0" />
 
+    <!-- Email (Azure Communication Services) -->
+    <PackageReference Include="Azure.Communication.Email" Version="1.1.0" />
+
     <!-- Managed Identity / Azure auth -->
     <PackageReference Include="Azure.Identity" Version="1.14.2" />
 

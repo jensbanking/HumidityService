@@ -1,6 +1,9 @@
+using Azure.Communication.Email;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using HumidityService.Application.Interfaces;
 using HumidityService.Infrastructure.Configuration;
+using HumidityService.Infrastructure.Email;
 using HumidityService.Infrastructure.ExternalApis.Danfoss;
 using HumidityService.Infrastructure.ExternalApis.OpenMeteo;
 using HumidityService.Infrastructure.Storage;
@@ -32,6 +35,18 @@ public static class InfrastructureServiceCollectionExtensions
             return new BlobServiceClient(options.ConnectionString);
         });
         services.AddSingleton<IRawClimateBlobStorage, BlobRawClimateStorage>();
+        services.AddSingleton<IHumidityAlertStateStore, BlobHumidityAlertStateStore>();
+
+        services.AddSingleton(sp => ConfigurationHumidityAlertSettings.Create(sp.GetRequiredService<IConfiguration>()));
+        services.Configure<AcsEmailOptions>(options =>
+        {
+            options.Endpoint = configuration["CommunicationServices:Endpoint"];
+            options.SenderAddress = configuration[$"{ConfigurationHumidityAlertSettings.SectionName}:SenderAddress"];
+        });
+        // Managed Identity in Azure; falls back to the developer's Azure CLI/Visual Studio login locally.
+        services.AddSingleton<IEmailSender>(sp => new AcsEmailSender(
+            sp.GetRequiredService<IOptions<AcsEmailOptions>>(),
+            endpoint => new EmailClient(endpoint, new DefaultAzureCredential())));
 
         services.AddHttpClient<IDanfossAuthClient, DanfossAuthClient>((sp, client) =>
             {

@@ -51,6 +51,7 @@
   - `slug` — a URL/path-safe identifier (lowercase, no spaces, e.g. `aarhus-house1`), used identically for both indoor and outdoor naming so readings can be correlated.
   - `danfossGatewayId` — the Danfoss Ally gateway ID (from the `/ally/devices` response) identifying the location's house.
   - `latitude` / `longitude` — the coordinate pair used for the Open-Meteo outdoor query.
+  - `humidityThresholds` (optional) — per-room humidity alert limits keyed by room name, overriding the global default (see Feature 5).
 - The full set of locations is stored as a list (e.g., a JSON app setting, config file, or small config table) rather than as individual scalar environment variables, since cardinality is >1 per environment.
 - Indoor and outdoor ingestion (Features 1 & 2) iterate over this list on every run, producing one blob per location per run for each of indoor/outdoor.
 - Each location's fetch/write is isolated from the others — a failure processing one location must not prevent the others from being fetched and persisted in the same run.
@@ -112,10 +113,27 @@
 * Configure GitHub Actions workflows for automated continuous integration and delivery.
 * Orchestrate Terraform infrastructure deployment steps.
 * Build and deploy the .NET 10 Function app artifact to Azure.
-* Database migrations are deliberately out of scope here — see Feature 7, which depends on the EF Core schema (Feature 5) existing first.
-* Covers the `development` environment only (`deploy-development.yml`); `test`, `staging` and `production` are deferred to Feature 10.
+* Database migrations are deliberately out of scope here — see Feature 8, which depends on the EF Core schema (Feature 6) existing first.
+* Covers the `development` environment only (`deploy-development.yml`); `test`, `staging` and `production` are deferred to Feature 11.
 
-### - [ ] Feature 5: Data Warehouse Design (EF Core)
+### - [ ] Feature 5: Humidity Alert Email Notifications (Azure Communication Services)
+* Check indoor humidity immediately after each location's Danfoss Ally response has been persisted (Feature 1), i.e. once per hour per location, as part of the same indoor ingestion run.
+* Evaluate only rooms that have a humidity sensor: devices whose `status` array reports `humidity_value` (today the `Danfoss Ally™ Room Sensor` devices). Use the device `name` as the room name; `temp_current` and `humidity_value` are scaled by 10 in the raw response (e.g. `597` = 59.7 %).
+* Humidity threshold (percent relative humidity) is configurable at two levels:
+  * a **global default** per environment (initially `75`), and
+  * an optional **per-room override** in the location's static config entry (see Location Configuration), keyed by room name (the Danfoss device `name`, matched case-insensitively), e.g. a higher limit for a basement room where raising the temperature isn't an option. Renaming a room in the Danfoss app means updating its key here too; log a warning when an override key matches no room.
+  * A room is above threshold when its humidity is `>=` its effective threshold (override if set, otherwise the global default).
+* When at least one room in a location is above its threshold, send one email for that location via **Azure Communication Services (ACS) Email**. No email is sent when every room is below its threshold.
+* Recipients are configurable (a list of email addresses per environment); the sender address is configurable and belongs to the environment's ACS email domain.
+* Subject: `Fugtigheds alarm fra {location}`, where `{location}` is the location's `slug`.
+* Body (HTML): a list of every room in the location that has a humidity sensor, with room name, temperature (°C) and humidity (%). Rooms above their threshold are shown in **bold**.
+* Isolation: a failure while evaluating or sending the alert for one location is logged with context and must neither fail the already-persisted blob nor block ingestion or alerting for the other locations.
+* Authenticate to ACS with **Managed Identity** where supported; any remaining secret (e.g. a connection string) lives in Key Vault. Apply a Polly retry policy to the send call.
+* Extend Terraform (Feature 3) with the per-environment ACS resource, Email Communication Service and email domain, plus the Function App app settings for threshold, recipients and sender.
+* Throttling: send **at most one alert email per location per calendar day** (`Europe/Copenhagen`). The first hourly check of the day that finds a room at or above its threshold sends the email; later checks that day send nothing, even if more rooms cross. If rooms are still above their threshold the next day, a new email is sent. Persist the last-sent date per location (e.g. a small blob or table entry) so throttling survives restarts and scale-out.
+* Configuration (app settings): `HumidityAlert__DefaultThresholdPercent` (global default), `HumidityAlert__Recipients` (JSON array of email addresses), `HumidityAlert__SenderAddress`, `CommunicationServices__Endpoint` (ACS endpoint, Managed Identity).
+
+### - [ ] Feature 6: Data Warehouse Design (EF Core)
 * Model a Relational Star Schema using Entity Framework Core code-first approach.
 * Implement a **Date Dimension** (`DimDate`).
 * Implement a **Time Dimension** (`DimTime`).
@@ -123,7 +141,7 @@
 * Implement a **Temperature and Humidity Fact Table** (`FactIndoorClimateReading`).
 * Implement a **Temperature and Humidity Fact Table** (`FactOutdoorClimateReading`).
 
-### - [ ] Feature 6: Data Processing & ETL Logic
+### - [ ] Feature 7: Data Processing & ETL Logic
 * Build a core process to parse raw JSON source structures using the Danfoss OpenAPI specification.
 * Chain execution within the Azure Function immediately following successful raw data ingestion.
 * Support an argument parameter to trigger processing independently without pulling fresh API data.
@@ -131,23 +149,23 @@
 * Guarantee strict **Idempotency** for all data entries written to the Data Warehouse.
 * **Open decision (revisit when building this feature):** "chain immediately following ingestion" above would hit Azure SQL every hour, which works against the serverless database's auto-pause (Feature 3 sets `auto_pause_delay_in_minutes = 60`, Azure's minimum). Consider decoupling the DWH sync onto its own, less frequent schedule (e.g. every few hours or once daily) instead of running it right after every hourly ingestion. Decide the actual cadence here, not earlier - it has no impact on the Feature 3 infrastructure.
 
-### - [ ] Feature 7: CI/CD Database Migration Pipeline
-* Extend the Feature 4 GitHub Actions pipeline to execute Entity Framework Core database migrations against target databases, once Feature 5 (Data Warehouse schema) and Feature 6 (ETL logic) exist.
+### - [ ] Feature 8: CI/CD Database Migration Pipeline
+* Extend the Feature 4 GitHub Actions pipeline to execute Entity Framework Core database migrations against target databases, once Feature 6 (Data Warehouse schema) and Feature 7 (ETL logic) exist.
 * Resolve the `manage_database_user = false` gap in the Terraform SQL module (see `terraform/README.md`, "What's still open") so the Function App's managed identity can authenticate to Azure SQL non-interactively.
-* Decide and implement migration cadence/safety — e.g. run only on schema-changing deploys. Applies the same manual-approval gate as Feature 10 for `staging`/`production`.
-* Resolves the open decision under Feature 6 about DWH sync cadence vs. serverless SQL auto-pause: migrations/sync run on this pipeline's own schedule, decoupled from the hourly ingestion trigger.
+* Decide and implement migration cadence/safety — e.g. run only on schema-changing deploys. Applies the same manual-approval gate as Feature 11 for `staging`/`production`.
+* Resolves the open decision under Feature 7 about DWH sync cadence vs. serverless SQL auto-pause: migrations/sync run on this pipeline's own schedule, decoupled from the hourly ingestion trigger.
 
-### - [ ] Feature 8: Monitoring & Alerting
+### - [ ] Feature 9: Monitoring & Alerting
 * Design operational dashboards inside Azure Application Insights.
 * Configure metric alerts for failed ingestion cycles.
 * Configure metric alerts for ETL processing errors and database sync failures.
 
-### - [ ] Feature 9: Data Quality & Governance
+### - [ ] Feature 10: Data Quality & Governance
 * Enforce request payload validation on incoming API schemas.
 * Intercept and log invalid or malformed data records without halting the application pipeline.
 * Route corrupt or unparseable source files to a dedicated blob storage container called `dead-letter`.
 
-### - [ ] Feature 10: CI/CD for Remaining Environments (GitHub Actions)
+### - [ ] Feature 11: CI/CD for Remaining Environments (GitHub Actions)
 * Extend the Feature 4 pipeline (today `development` only) to the `test`, `staging` and `production` environments.
 * Refactor `deploy-development.yml` into a reusable workflow called once per environment, rather than duplicating it four times.
 * `development`/`test` deploy automatically; `staging`/`production` require manual approval (e.g. a GitHub Environments protection rule) before the deployment job runs.

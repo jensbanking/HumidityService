@@ -7,6 +7,6 @@ References: `HumidityService.Application` (and `Domain` transitively).
 Planned contents:
 - `DanfossApiClient`, `OpenMeteoApiClient` (Polly retry policies applied here)
 - `BlobStorageWriter` (raw JSON persistence, dead-letter routing)
-- `HumidityDwhDbContext` (EF Core, Star Schema — Feature 5)
+- `HumidityDwhDbContext` (EF Core, Star Schema — Feature 6)
 - Managed Identity-based SQL and Key Vault access
 - OpenTelemetry configuration

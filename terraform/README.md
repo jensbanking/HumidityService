@@ -57,7 +57,7 @@ Two layers:
 - The Function App's own deployment (the compiled artifact) isn't part of this Terraform - it
   provisions the empty Function App; Feature 4 deploys code into it.
 
-### CI/CD authentication (Feature 4 / Feature 7 prerequisite)
+### CI/CD authentication (Feature 4 / Feature 8 prerequisite)
 
 GitHub Actions authenticates to Azure via OIDC federated credentials - no client secret is
 stored anywhere. One App Registration per environment (not one shared registration), each with a

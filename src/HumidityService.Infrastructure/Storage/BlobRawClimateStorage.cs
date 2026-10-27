@@ -30,7 +30,7 @@ public sealed class BlobRawClimateStorage : IRawClimateBlobStorage
     }
 
     /// <inheritdoc />
-    public async Task SaveRawReadingAsync(string? locationSlug, ClimateReadingType readingType, DateTimeOffset timestampUtc, string rawJson, CancellationToken cancellationToken)
+    public async Task SaveRawReadingAsync(string locationSlug, ClimateReadingType readingType, DateTimeOffset timestampUtc, string rawJson, CancellationToken cancellationToken)
     {
         var containerClient = _blobServiceClient.GetBlobContainerClient(_options.ContainerName);
         var blobName = ClimateBlobPathBuilder.Build(locationSlug, readingType, timestampUtc);

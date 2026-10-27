@@ -9,7 +9,7 @@ Two layers:
 - **`environments/{development,test,staging,production}/`** - one Function App, Storage account,
   Azure SQL Database, and VNet per environment, all wired to the shared Key Vault from bootstrap.
   Each composes the reusable building blocks in `modules/` (`networking`, `storage`, `sql`,
-  `function-app`) via `modules/environment`.
+  `function-app`, `communication`) via `modules/environment`.
 
 ## First-time setup
 
@@ -43,21 +43,32 @@ Two layers:
    principal - see "CI/CD authentication" below.
 
    Each environment's `main.tf` holds its static `locations` list (`slug`, `danfossGatewayId`,
-   `latitude`, `longitude`). Edit it there to add or change locations.
+   `latitude`, `longitude`, optional `humidityThresholds`). Edit it there to add or change
+   locations.
 
 3. After `apply`, follow `modules/sql/README.md` to grant the Function App's managed identity a
    contained database user (skipped by default - `manage_database_user = false` - since it needs
    network line-of-sight to the VNet-firewalled SQL server that a normal apply doesn't have).
 
+## CI/CD
+
+- `.github/workflows/ci.yml` runs on every pull request: `terraform fmt -check` and
+  `terraform validate` (with `-backend=false`, so no Azure login) for `bootstrap` and all four
+  environments.
+- `.github/workflows/deploy-development.yml` runs on push to `main`: `terraform plan`/`apply` for
+  `development`, then deploys the compiled Function App into the Function App this Terraform
+  provisions (the code itself isn't part of Terraform).
+- `bootstrap` is never applied by the pipeline - run it by hand as above.
+
 ## What's still open
 
-- **CI/CD** (Feature 4) doesn't exist yet, so all of the above is run by hand. Once it does,
-  revisit `manage_database_user` and the backend-config secrets/tokens above so the pipeline can
-  run `terraform apply` non-interactively.
-- The Function App's own deployment (the compiled artifact) isn't part of this Terraform - it
-  provisions the empty Function App; Feature 4 deploys code into it.
+- **Other environments** - `test`, `staging` and `production` have Terraform but no deploy
+  pipeline yet, so they're applied by hand if at all (Feature 11).
+- **Database user** - `manage_database_user = false` in every environment, so the Function App's
+  managed identity still needs its contained database user created by hand (see
+  `modules/sql/README.md`); the pipeline can't reach the VNet-firewalled SQL server (Feature 8).
 
-### CI/CD authentication (Feature 4 / Feature 8 prerequisite)
+### CI/CD authentication
 
 GitHub Actions authenticates to Azure via OIDC federated credentials - no client secret is
 stored anywhere. One App Registration per environment (not one shared registration), each with a

@@ -1,4 +1,6 @@
 using Azure;
+using Azure.Communication.Email;
+using Azure.Storage.Blobs;
 using HumidityService.Infrastructure.Resilience;
 using Xunit;
 
@@ -6,6 +8,21 @@ namespace HumidityService.Infrastructure.Tests.Resilience;
 
 public class AzureRetryPipelineTests
 {
+    [Fact]
+    public void WithoutSdkRetries_BlobClientOptions_DisablesSdkRetries()
+    {
+        var options = new BlobClientOptions();
+
+        Assert.Same(options, AzureRetryPipeline.WithoutSdkRetries(options));
+        Assert.Equal(0, options.Retry.MaxRetries);
+    }
+
+    [Fact]
+    public void WithoutSdkRetries_EmailClientOptions_DisablesSdkRetries()
+    {
+        Assert.Equal(0, AzureRetryPipeline.WithoutSdkRetries(new EmailClientOptions()).Retry.MaxRetries);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(408)]

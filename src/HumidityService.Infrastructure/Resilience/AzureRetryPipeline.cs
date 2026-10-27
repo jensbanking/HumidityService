@@ -1,4 +1,5 @@
 using Azure;
+using Azure.Core;
 using Polly;
 using Polly.Retry;
 
@@ -21,6 +22,20 @@ public static class AzureRetryPipeline
                 Delay = TimeSpan.FromSeconds(1),
             })
             .Build();
+
+    /// <summary>
+    /// Turns off the Azure SDK client's own retries, so this pipeline is the only retry layer and a
+    /// failing call isn't retried up to 4 x 4 times. Apply it to every client whose calls run through
+    /// <see cref="Create"/>.
+    /// </summary>
+    /// <param name="options">The client's options.</param>
+    /// <returns>The same options instance.</returns>
+    public static TOptions WithoutSdkRetries<TOptions>(TOptions options)
+        where TOptions : ClientOptions
+    {
+        options.Retry.MaxRetries = 0;
+        return options;
+    }
 
     /// <summary>
     /// Whether a failed Azure request is worth retrying: no response at all (status 0, e.g. a network

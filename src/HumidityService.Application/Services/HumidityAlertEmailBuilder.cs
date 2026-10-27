@@ -7,7 +7,7 @@ namespace HumidityService.Application.Services;
 
 /// <summary>
 /// Builds the humidity alert email for a location: subject <c>Fugtigheds alarm fra {location}</c>,
-/// a heading with the location and Danish date/time, a line with the outdoor reading (<c>Ude: ...</c>), and a table (Rum, Temp, Fugt %) of every room with a humidity sensor, with rooms at or above
+/// a heading with the location and, on its second line, the Danish date/time, a line with the outdoor reading (<c>Ude: ...</c>), and a table (Rum, Temp, Fugt %) of every room with a humidity sensor, with rooms at or above
 /// their limit in bold red.
 /// </summary>
 public static class HumidityAlertEmailBuilder
@@ -34,12 +34,13 @@ public static class HumidityAlertEmailBuilder
     public static EmailMessage Build(string locationSlug, DateTime readingTimeLocal, OutdoorClimateReading? outdoorReading, IReadOnlyList<RoomHumidityStatus> rooms, IReadOnlyList<string> recipients)
     {
         var subject = $"Fugtigheds alarm fra {locationSlug}";
-        var heading = $"Fugtighedsmålinger for {locationSlug} {FormatDanishDateTime(readingTimeLocal)}";
+        var heading = $"Fugtighedsmålinger for {locationSlug}";
+        var readingTime = FormatDanishDateTime(readingTimeLocal);
         var outdoorLine = FormatOutdoor(outdoorReading);
 
         var html = new StringBuilder()
             .Append("<html><body>")
-            .Append("<p>").Append(HtmlEscape(heading)).Append("</p>")
+            .Append("<p>").Append(HtmlEscape(heading)).Append("<br>").Append(readingTime).Append("</p>")
             .Append("<p>").Append(HtmlEscape(outdoorLine)).Append("</p>")
             .Append($"<table style=\"{TableStyle}\">")
             .Append($"<tr><th style=\"{HeaderStyle}\">Rum</th><th style=\"{HeaderStyle}\">Temp</th><th style=\"{HeaderStyle}\">Fugt %</th></tr>");
@@ -47,6 +48,7 @@ public static class HumidityAlertEmailBuilder
         var nameWidth = Math.Max("Rum".Length, rooms.Select(r => r.Reading.RoomName.Length).DefaultIfEmpty(0).Max());
         var text = new StringBuilder()
             .AppendLine(heading)
+            .AppendLine(readingTime)
             .AppendLine()
             .AppendLine(outdoorLine)
             .AppendLine()

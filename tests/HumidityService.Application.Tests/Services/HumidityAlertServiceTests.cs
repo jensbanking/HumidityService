@@ -61,7 +61,7 @@ public class HumidityAlertServiceTests
         await _emailSender.Received(1).SendAsync(
             Arg.Is<EmailMessage>(m =>
                 m.Subject == "Fugtigheds alarm fra lyngby" &&
-                m.PlainTextBody.StartsWith("Fugtighedsmålinger for lyngby 26. Okt 2026 kl. 00:30") &&
+                m.PlainTextBody.StartsWith("Fugtighedsmålinger for lyngby" + Environment.NewLine + "26. Okt 2026 kl. 00:30") &&
                 m.Recipients.SequenceEqual(new[] { "a@example.com", "b@example.com" }) &&
                 IsMarkedAbove(m, "Kælder") &&
                 !IsMarkedAbove(m, "Stue")),

@@ -36,12 +36,12 @@ public class HumidityAlertEmailBuilderTests
     }
 
     [Fact]
-    public void Build_HeadingHasLocationAndDanishDateTime()
+    public void Build_HeadingHasLocationWithDanishDateTimeOnSecondLine()
     {
         var message = HumidityAlertEmailBuilder.Build("lyngby", ReadingTime, Outdoor, Rooms, ["a@example.com"]);
 
-        Assert.Contains("<p>Fugtighedsmålinger for lyngby 26. Okt 2026 kl. 00:00</p>", message.HtmlBody);
-        Assert.StartsWith("Fugtighedsmålinger for lyngby 26. Okt 2026 kl. 00:00" + Environment.NewLine, message.PlainTextBody);
+        Assert.Contains("<p>Fugtighedsmålinger for lyngby<br>26. Okt 2026 kl. 00:00</p>", message.HtmlBody);
+        Assert.StartsWith("Fugtighedsmålinger for lyngby" + Environment.NewLine + "26. Okt 2026 kl. 00:00" + Environment.NewLine, message.PlainTextBody);
     }
 
     [Theory]
@@ -52,7 +52,7 @@ public class HumidityAlertEmailBuilderTests
     {
         var message = HumidityAlertEmailBuilder.Build("lyngby", new DateTime(year, month, day, hour, minute, 0), Outdoor, Rooms, ["a@example.com"]);
 
-        Assert.StartsWith($"Fugtighedsmålinger for lyngby {expected}{Environment.NewLine}", message.PlainTextBody);
+        Assert.StartsWith($"Fugtighedsmålinger for lyngby{Environment.NewLine}{expected}{Environment.NewLine}", message.PlainTextBody);
     }
 
     [Fact]
@@ -62,8 +62,8 @@ public class HumidityAlertEmailBuilderTests
 
         Assert.Contains("</p><p>Ude: 8,3 °C, 92 % fugt</p><table", message.HtmlBody);
         var lines = message.PlainTextBody.Split(Environment.NewLine);
-        Assert.Equal("Ude: 8,3 °C, 92 % fugt", lines[2]);
-        Assert.StartsWith("Rum", lines[4]);
+        Assert.Equal("Ude: 8,3 °C, 92 % fugt", lines[3]);
+        Assert.StartsWith("Rum", lines[5]);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class HumidityAlertEmailBuilderTests
         var message = HumidityAlertEmailBuilder.Build("lyngby", ReadingTime, null, Rooms, ["a@example.com"]);
 
         Assert.Contains("<p>Ude: ikke tilgængelig</p>", message.HtmlBody);
-        Assert.Equal("Ude: ikke tilgængelig", message.PlainTextBody.Split(Environment.NewLine)[2]);
+        Assert.Equal("Ude: ikke tilgængelig", message.PlainTextBody.Split(Environment.NewLine)[3]);
     }
 
     [Fact]

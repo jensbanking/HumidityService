@@ -131,6 +131,7 @@ A feature may only be marked `[x]` after the `definition-of-done` skill (`.claud
 ### - [ ] Feature 6: Outdoor Climate in Humidity Alert Emails
 * Add the location's outdoor reading for the same hour (Open-Meteo `temperature_2m` and `relative_humidity_2m`) to the humidity alert email (Feature 5).
 * Show it as one line above the room table, in the same Danish number format as the table: `Ude: 8,3 °C, 92 % fugt`. When no outdoor reading is available, show `Ude: ikke tilgængelig`. The plain-text body gets the same line.
+* Move the Danish date and time from the end of the body's first line to its own second line: `Fugtighedsmålinger for {location}`, then `{Danish date and time}`.
 * The email is sent even when the outdoor reading is missing - a failed or missing outdoor fetch never blocks or delays the alert.
 * Merge indoor and outdoor ingestion into one hourly timer function, so the hour's outdoor reading exists before the alert check. Per location: fetch and persist outdoor (Feature 2), then indoor (Feature 1), then run the alert check with both. Each step stays isolated: an outdoor failure doesn't stop the indoor ingestion or the alert, and one location's failures don't stop the others.
 * Take the outdoor values from the Open-Meteo response just fetched (`current.temperature_2m`, `current.relative_humidity_2m`), not by re-reading blob storage. If either value is `null` or missing in the response, treat the reading as unavailable (`Ude: ikke tilgængelig`), the same as a failed fetch.

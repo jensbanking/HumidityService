@@ -16,10 +16,11 @@ public class IndoorClimateIngestionServiceTests
     private readonly IDanfossClimateApiClient _climateApiClient = Substitute.For<IDanfossClimateApiClient>();
     private readonly IRawClimateBlobStorage _blobStorage = Substitute.For<IRawClimateBlobStorage>();
     private readonly IHumidityAlertService _humidityAlertService = Substitute.For<IHumidityAlertService>();
+    private readonly TimeProvider _timeProvider = Substitute.For<TimeProvider>();
     private readonly ILogger<IndoorClimateIngestionService> _logger = Substitute.For<ILogger<IndoorClimateIngestionService>>();
 
     private IndoorClimateIngestionService CreateSut() =>
-        new(_locationProvider, _authClient, _climateApiClient, _blobStorage, _humidityAlertService, _logger);
+        new(_locationProvider, _authClient, _climateApiClient, _blobStorage, _humidityAlertService, _timeProvider, _logger);
 
     private void GivenDeviceList(string json)
     {
@@ -43,6 +44,24 @@ public class IndoorClimateIngestionServiceTests
         await _climateApiClient.Received(1).GetAllDevicesAsync("token-123", Arg.Any<CancellationToken>());
         await _blobStorage.Received(1).SaveRawReadingAsync("aarhus-house1", ClimateReadingType.Indoor, Arg.Any<DateTimeOffset>(), DevicesJson, Arg.Any<CancellationToken>());
         await _blobStorage.Received(1).SaveRawReadingAsync("odense-house2", ClimateReadingType.Indoor, Arg.Any<DateTimeOffset>(), DevicesJson, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task IngestAsync_SavesEveryLocationWithTheRunTimestampFromTimeProvider()
+    {
+        var now = new DateTimeOffset(2026, 10, 27, 14, 0, 3, TimeSpan.Zero);
+        _timeProvider.GetUtcNow().Returns(now);
+        _locationProvider.GetLocations().Returns(new[]
+        {
+            new Location("aarhus-house1", "gw-1", 56.1629, 10.2039),
+            new Location("odense-house2", "gw-2", 55.4038, 10.4024),
+        });
+        GivenDeviceList(DevicesJson);
+
+        await CreateSut().IngestAsync(CancellationToken.None);
+
+        await _blobStorage.Received(1).SaveRawReadingAsync("aarhus-house1", ClimateReadingType.Indoor, now, DevicesJson, Arg.Any<CancellationToken>());
+        await _blobStorage.Received(1).SaveRawReadingAsync("odense-house2", ClimateReadingType.Indoor, now, DevicesJson, Arg.Any<CancellationToken>());
     }
 
     [Fact]

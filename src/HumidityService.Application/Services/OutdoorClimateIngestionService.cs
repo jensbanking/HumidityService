@@ -15,6 +15,7 @@ public sealed class OutdoorClimateIngestionService : IOutdoorClimateIngestionSer
     private readonly ILocationProvider _locationProvider;
     private readonly IOpenMeteoApiClient _openMeteoApiClient;
     private readonly IRawClimateBlobStorage _blobStorage;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<OutdoorClimateIngestionService> _logger;
 
     /// <summary>Initializes a new instance of <see cref="OutdoorClimateIngestionService"/>.</summary>
@@ -22,24 +23,28 @@ public sealed class OutdoorClimateIngestionService : IOutdoorClimateIngestionSer
         ILocationProvider locationProvider,
         IOpenMeteoApiClient openMeteoApiClient,
         IRawClimateBlobStorage blobStorage,
+        TimeProvider timeProvider,
         ILogger<OutdoorClimateIngestionService> logger)
     {
         _locationProvider = locationProvider;
         _openMeteoApiClient = openMeteoApiClient;
         _blobStorage = blobStorage;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
     /// <inheritdoc />
     public async Task IngestAsync(CancellationToken cancellationToken)
     {
+        // One timestamp per run, so every location's reading lands in the same hourly blob.
+        var timestampUtc = _timeProvider.GetUtcNow();
         var failures = new List<Exception>();
         foreach (var location in _locationProvider.GetLocations())
         {
             try
             {
                 var rawJson = await _openMeteoApiClient.GetOutdoorClimateAsync(location.Latitude, location.Longitude, cancellationToken);
-                await _blobStorage.SaveRawReadingAsync(location.Slug, ClimateReadingType.Outdoor, DateTimeOffset.UtcNow, rawJson, cancellationToken);
+                await _blobStorage.SaveRawReadingAsync(location.Slug, ClimateReadingType.Outdoor, timestampUtc, rawJson, cancellationToken);
 
                 _logger.LogInformation("Outdoor climate reading ingested successfully for location {LocationSlug}.", location.Slug);
             }

@@ -12,10 +12,11 @@ public class OutdoorClimateIngestionServiceTests
     private readonly ILocationProvider _locationProvider = Substitute.For<ILocationProvider>();
     private readonly IOpenMeteoApiClient _openMeteoApiClient = Substitute.For<IOpenMeteoApiClient>();
     private readonly IRawClimateBlobStorage _blobStorage = Substitute.For<IRawClimateBlobStorage>();
+    private readonly TimeProvider _timeProvider = Substitute.For<TimeProvider>();
     private readonly ILogger<OutdoorClimateIngestionService> _logger = Substitute.For<ILogger<OutdoorClimateIngestionService>>();
 
     private OutdoorClimateIngestionService CreateSut() =>
-        new(_locationProvider, _openMeteoApiClient, _blobStorage, _logger);
+        new(_locationProvider, _openMeteoApiClient, _blobStorage, _timeProvider, _logger);
 
     [Fact]
     public async Task IngestAsync_MultipleLocations_FetchesAndSavesEachIndependently()
@@ -33,6 +34,24 @@ public class OutdoorClimateIngestionServiceTests
 
         await _blobStorage.Received(1).SaveRawReadingAsync("aarhus-house1", ClimateReadingType.Outdoor, Arg.Any<DateTimeOffset>(), "{\"aarhus\":true}", Arg.Any<CancellationToken>());
         await _blobStorage.Received(1).SaveRawReadingAsync("odense-house2", ClimateReadingType.Outdoor, Arg.Any<DateTimeOffset>(), "{\"odense\":true}", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task IngestAsync_TimeAdvancesDuringRun_SavesEveryLocationWithTheRunTimestamp()
+    {
+        var runStart = new DateTimeOffset(2026, 10, 27, 14, 59, 59, TimeSpan.Zero);
+        _timeProvider.GetUtcNow().Returns(runStart, runStart.AddSeconds(2));
+        _locationProvider.GetLocations().Returns(new[]
+        {
+            new Location("aarhus-house1", "gw-aarhus-house1", 56.1629, 10.2039),
+            new Location("odense-house2", "gw-odense-house2", 55.4038, 10.4024),
+        });
+        _openMeteoApiClient.GetOutdoorClimateAsync(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<CancellationToken>()).Returns("{}");
+
+        await CreateSut().IngestAsync(CancellationToken.None);
+
+        await _blobStorage.Received(1).SaveRawReadingAsync("aarhus-house1", ClimateReadingType.Outdoor, runStart, "{}", Arg.Any<CancellationToken>());
+        await _blobStorage.Received(1).SaveRawReadingAsync("odense-house2", ClimateReadingType.Outdoor, runStart, "{}", Arg.Any<CancellationToken>());
     }
 
     [Fact]

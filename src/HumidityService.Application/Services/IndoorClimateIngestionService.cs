@@ -18,6 +18,7 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
     private readonly IDanfossClimateApiClient _climateApiClient;
     private readonly IRawClimateBlobStorage _blobStorage;
     private readonly IHumidityAlertService _humidityAlertService;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<IndoorClimateIngestionService> _logger;
 
     /// <summary>Initializes a new instance of <see cref="IndoorClimateIngestionService"/>.</summary>
@@ -27,6 +28,7 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
         IDanfossClimateApiClient climateApiClient,
         IRawClimateBlobStorage blobStorage,
         IHumidityAlertService humidityAlertService,
+        TimeProvider timeProvider,
         ILogger<IndoorClimateIngestionService> logger)
     {
         _locationProvider = locationProvider;
@@ -34,6 +36,7 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
         _climateApiClient = climateApiClient;
         _blobStorage = blobStorage;
         _humidityAlertService = humidityAlertService;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -64,7 +67,7 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
             throw;
         }
 
-        var timestampUtc = DateTimeOffset.UtcNow;
+        var timestampUtc = _timeProvider.GetUtcNow();
         var failures = new List<Exception>();
         foreach (var location in _locationProvider.GetLocations())
         {

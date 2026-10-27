@@ -3,17 +3,17 @@ using Azure.Communication.Email;
 using HumidityService.Application.Interfaces;
 using EmailMessage = HumidityService.Application.Models.EmailMessage;
 using HumidityService.Infrastructure.Configuration;
+using HumidityService.Infrastructure.Resilience;
 using Microsoft.Extensions.Options;
 using Polly;
-using Polly.Retry;
 
 namespace HumidityService.Infrastructure.Email;
 
 /// <summary>
 /// Sends email through Azure Communication Services Email. The <see cref="EmailClient"/> is created
 /// on first use, so a missing endpoint only fails the send (and is logged by the caller) rather than
-/// the whole ingestion pipeline at startup. Sends are retried with a Polly resilience pipeline on
-/// transient ACS failures.
+/// the whole ingestion pipeline at startup. Sends are retried on transient ACS failures
+/// (see <see cref="AzureRetryPipeline"/>).
 /// </summary>
 public sealed class AcsEmailSender : IEmailSender
 {
@@ -36,15 +36,7 @@ public sealed class AcsEmailSender : IEmailSender
 
             return clientFactory(new Uri(_options.Endpoint));
         });
-        _retryPipeline = new ResiliencePipelineBuilder()
-            .AddRetry(new RetryStrategyOptions
-            {
-                ShouldHandle = new PredicateBuilder().Handle<RequestFailedException>(ex => ex.Status is 0 or 408 or 429 or >= 500),
-                MaxRetryAttempts = 3,
-                BackoffType = DelayBackoffType.Exponential,
-                Delay = TimeSpan.FromSeconds(1),
-            })
-            .Build();
+        _retryPipeline = AzureRetryPipeline.Create();
     }
 
     /// <inheritdoc />

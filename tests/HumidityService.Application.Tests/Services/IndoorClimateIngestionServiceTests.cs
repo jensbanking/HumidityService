@@ -163,7 +163,7 @@ public class IndoorClimateIngestionServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => CreateSut().IngestAsync(CancellationToken.None));
 
         await _climateApiClient.DidNotReceive().GetAllDevicesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
-        await _blobStorage.DidNotReceive().SaveRawReadingAsync(Arg.Any<string?>(), Arg.Any<ClimateReadingType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _blobStorage.DidNotReceive().SaveRawReadingAsync(Arg.Any<string>(), Arg.Any<ClimateReadingType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -174,7 +174,7 @@ public class IndoorClimateIngestionServiceTests
 
         await Assert.ThrowsAsync<HttpRequestException>(() => CreateSut().IngestAsync(CancellationToken.None));
 
-        await _blobStorage.DidNotReceive().SaveRawReadingAsync(Arg.Any<string?>(), Arg.Any<ClimateReadingType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _blobStorage.DidNotReceive().SaveRawReadingAsync(Arg.Any<string>(), Arg.Any<ClimateReadingType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -185,6 +185,6 @@ public class IndoorClimateIngestionServiceTests
 
         await Assert.ThrowsAnyAsync<Exception>(() => CreateSut().IngestAsync(CancellationToken.None));
 
-        await _blobStorage.DidNotReceive().SaveRawReadingAsync(Arg.Any<string?>(), Arg.Any<ClimateReadingType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _blobStorage.DidNotReceive().SaveRawReadingAsync(Arg.Any<string>(), Arg.Any<ClimateReadingType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 }

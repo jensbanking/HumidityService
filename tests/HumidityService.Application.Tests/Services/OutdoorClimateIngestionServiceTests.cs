@@ -113,6 +113,6 @@ public class OutdoorClimateIngestionServiceTests
         await CreateSut().IngestAsync(CancellationToken.None);
 
         await _openMeteoApiClient.DidNotReceive().GetOutdoorClimateAsync(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<CancellationToken>());
-        await _blobStorage.DidNotReceive().SaveRawReadingAsync(Arg.Any<string?>(), Arg.Any<ClimateReadingType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _blobStorage.DidNotReceive().SaveRawReadingAsync(Arg.Any<string>(), Arg.Any<ClimateReadingType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 }

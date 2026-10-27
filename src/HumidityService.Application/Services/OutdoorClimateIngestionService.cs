@@ -7,7 +7,8 @@ namespace HumidityService.Application.Services;
 /// <summary>
 /// Default <see cref="IOutdoorClimateIngestionService"/> implementation. Iterates over every
 /// configured location, fetching outdoor climate data from Open-Meteo and persisting the raw
-/// response per location. A failure for one location is logged and does not stop the others.
+/// response per location. A failure for one location is logged and does not stop the others; once
+/// every location has been processed, the run fails if any of them did.
 /// </summary>
 public sealed class OutdoorClimateIngestionService : IOutdoorClimateIngestionService
 {
@@ -32,6 +33,7 @@ public sealed class OutdoorClimateIngestionService : IOutdoorClimateIngestionSer
     /// <inheritdoc />
     public async Task IngestAsync(CancellationToken cancellationToken)
     {
+        var failures = new List<Exception>();
         foreach (var location in _locationProvider.GetLocations())
         {
             try
@@ -44,7 +46,15 @@ public sealed class OutdoorClimateIngestionService : IOutdoorClimateIngestionSer
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "Failed to ingest the outdoor climate reading for location {LocationSlug}.", location.Slug);
+                failures.Add(ex);
             }
+        }
+
+        if (failures.Count > 0)
+        {
+            // Each failure is already logged above; failing the run makes it visible as a failed
+            // function invocation (e.g. for alerting) instead of a silent success.
+            throw new AggregateException($"Outdoor climate ingestion had {failures.Count} failure(s); see the logged errors per location.", failures);
         }
     }
 }

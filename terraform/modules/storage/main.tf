@@ -40,8 +40,8 @@ resource "azurerm_storage_container" "alert_state" {
   container_access_type = "private"
 }
 
-# Destination for corrupt/unparseable source files (Feature 10). Created now so app settings
-# referencing it are valid from day one, even though nothing writes to it until Feature 10.
+# Destination for corrupt/unparseable source files (Feature 11). Created now so app settings
+# referencing it are valid from day one, even though nothing writes to it until Feature 11.
 resource "azurerm_storage_container" "dead_letter" {
   name                  = "dead-letter"
   storage_account_id    = azurerm_storage_account.this.id

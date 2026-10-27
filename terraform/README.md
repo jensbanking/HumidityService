@@ -63,10 +63,10 @@ Two layers:
 ## What's still open
 
 - **Other environments** - `test`, `staging` and `production` have Terraform but no deploy
-  pipeline yet, so they're applied by hand if at all (Feature 11).
+  pipeline yet, so they're applied by hand if at all (Feature 12).
 - **Database user** - `manage_database_user = false` in every environment, so the Function App's
   managed identity still needs its contained database user created by hand (see
-  `modules/sql/README.md`); the pipeline can't reach the VNet-firewalled SQL server (Feature 8).
+  `modules/sql/README.md`); the pipeline can't reach the VNet-firewalled SQL server (Feature 9).
 
 ### CI/CD authentication
 

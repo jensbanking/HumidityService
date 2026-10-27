@@ -18,6 +18,6 @@ Contents:
 - `DependencyInjection/` - `AddHumidityInfrastructure`.
 
 Planned:
-- `HumidityDwhDbContext` (EF Core, star schema - Feature 6) with Managed Identity SQL access.
-- Dead-letter routing for unparseable source files (Feature 10).
+- `HumidityDwhDbContext` (EF Core, star schema - Feature 7) with Managed Identity SQL access.
+- Dead-letter routing for unparseable source files (Feature 11).
 - OpenTelemetry configuration (a project-wide requirement in `claude.md`, not yet wired up).

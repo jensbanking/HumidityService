@@ -15,4 +15,4 @@ Contents:
 - `RoomHumidityStatus` - a reading against its limit (`IsAboveThreshold`: at or above it).
 
 Planned:
-- Data warehouse entities for the star schema (Feature 6).
+- Data warehouse entities for the star schema (Feature 7).

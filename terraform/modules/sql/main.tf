@@ -1,4 +1,4 @@
-# Azure SQL Database for the data warehouse (Feature 6). Access is Managed-Identity-only:
+# Azure SQL Database for the data warehouse (Feature 7). Access is Managed-Identity-only:
 # SQL native authentication is disabled server-wide (azuread_authentication_only), and the
 # only network path in is the VNet the Function App integrates into (no public firewall rules).
 

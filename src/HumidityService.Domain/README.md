@@ -6,7 +6,11 @@ Per the Clean Architecture rules in `claude.md`:
 - No references to Application, Infrastructure, or FunctionHost.
 - No external package dependencies.
 
-Planned contents (see roadmap Features 1, 2, 5):
-- `ClimateReading` (indoor/outdoor value objects)
-- `Location` value object (`slug`, `danfossGatewayId`, `latitude`, `longitude`)
-- Validation logic for incoming readings
+Contents:
+- `Location` - a statically configured location (`Slug`, `DanfossGatewayId`, `Latitude`,
+  `Longitude`, optional per-room `HumidityThresholds`).
+- `RoomClimateReading` - a room's current temperature and humidity.
+- `ClimateReadingType` - indoor (Danfoss) or outdoor (Open-Meteo).
+
+Planned:
+- Data warehouse entities for the star schema (Feature 6).

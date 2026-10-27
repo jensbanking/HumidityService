@@ -9,14 +9,8 @@ output "storage_account_name" {
 }
 
 output "primary_blob_endpoint" {
-  description = "Primary Blob service endpoint, e.g. \"https://sthumiditydevelopmentxxxx.blob.core.windows.net/\". Used to build the Flex Consumption deployment storage container's endpoint URL."
+  description = "Primary Blob service endpoint, e.g. \"https://sthumiditydevelopmentxxxx.blob.core.windows.net/\". Used for the app's ClimateStorage__ServiceUri and to build the Flex Consumption deployment storage container's endpoint URL."
   value       = azurerm_storage_account.this.primary_blob_endpoint
-}
-
-output "primary_connection_string" {
-  description = "Primary connection string for the storage account. Sensitive: written to a Key Vault secret by the environment module rather than passed around in plain app settings."
-  value       = azurerm_storage_account.this.primary_connection_string
-  sensitive   = true
 }
 
 output "container_name" {

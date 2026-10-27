@@ -9,7 +9,14 @@ public sealed class ClimateStorageOptions
     /// <summary>The configuration section name this options type binds to.</summary>
     public const string SectionName = "ClimateStorage";
 
-    /// <summary>Blob storage connection string. Defaults to the local Azurite emulator.</summary>
+    /// <summary>
+    /// Blob service endpoint, e.g. <c>https://&lt;account&gt;.blob.core.windows.net</c>. When set, it takes
+    /// precedence over <see cref="ConnectionString"/> and the account is reached with Entra ID
+    /// (managed identity in Azure, the developer's own login locally) instead of an account key.
+    /// </summary>
+    public string? ServiceUri { get; init; }
+
+    /// <summary>Blob storage connection string, used when <see cref="ServiceUri"/> is not set. Defaults to the local Azurite emulator.</summary>
     public string ConnectionString { get; init; } = "UseDevelopmentStorage=true";
 
     /// <summary>Container that raw indoor/outdoor climate readings are written to.</summary>

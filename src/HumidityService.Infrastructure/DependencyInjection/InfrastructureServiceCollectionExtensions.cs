@@ -1,4 +1,5 @@
 using Azure.Communication.Email;
+using Azure.Core;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 using HumidityService.Application.Interfaces;
@@ -30,11 +31,12 @@ public static class InfrastructureServiceCollectionExtensions
 
         services.AddSingleton<ILocationProvider>(sp => new ConfigurationLocationProvider(sp.GetRequiredService<IConfiguration>()));
 
-        services.AddSingleton(sp =>
-        {
-            var options = sp.GetRequiredService<IOptions<ClimateStorageOptions>>().Value;
-            return new BlobServiceClient(options.ConnectionString, AzureRetryPipeline.WithoutSdkRetries(new BlobClientOptions()));
-        });
+        // Managed Identity in Azure; falls back to the developer's Azure CLI/Visual Studio login locally.
+        services.AddSingleton<TokenCredential>(_ => new DefaultAzureCredential());
+
+        services.AddSingleton(sp => BlobServiceClientFactory.Create(
+            sp.GetRequiredService<IOptions<ClimateStorageOptions>>().Value,
+            sp.GetRequiredService<TokenCredential>()));
         services.AddSingleton<IRawClimateBlobStorage, BlobRawClimateStorage>();
         services.AddSingleton<IHumidityAlertStateStore, BlobHumidityAlertStateStore>();
 
@@ -44,10 +46,9 @@ public static class InfrastructureServiceCollectionExtensions
             options.Endpoint = configuration["CommunicationServices:Endpoint"];
             options.SenderAddress = configuration[$"{ConfigurationHumidityAlertSettings.SectionName}:SenderAddress"];
         });
-        // Managed Identity in Azure; falls back to the developer's Azure CLI/Visual Studio login locally.
         services.AddSingleton<IEmailSender>(sp => new AcsEmailSender(
             sp.GetRequiredService<IOptions<AcsEmailOptions>>(),
-            endpoint => new EmailClient(endpoint, new DefaultAzureCredential(), AzureRetryPipeline.WithoutSdkRetries(new EmailClientOptions()))));
+            endpoint => new EmailClient(endpoint, sp.GetRequiredService<TokenCredential>(), AzureRetryPipeline.WithoutSdkRetries(new EmailClientOptions()))));
 
         services.AddHttpClient<IDanfossAuthClient, DanfossAuthClient>((sp, client) =>
             {

@@ -51,9 +51,9 @@ resource "azurerm_function_app_flex_consumption" "this" {
     vnet_route_all_enabled                 = true
   }
 
-  # Feature 3 requirement: Blob Storage connection string is wired into the Function App's
-  # environment automatically via Terraform - as a Key Vault reference, not a plaintext
-  # value, so the secret itself never lands in source control or the app setting itself.
+  # Secrets are wired in as Key Vault references, never plaintext, so they never land in source
+  # control or the app setting itself. Blob Storage needs no secret at all: the app reaches it
+  # with its managed identity (see the role assignment below).
   app_settings = {
     # Identity-based host storage. With storage_authentication_type = "SystemAssignedIdentity"
     # the provider otherwise writes an AzureWebJobsStorage connection string with an empty
@@ -62,8 +62,8 @@ resource "azurerm_function_app_flex_consumption" "this" {
     "AzureWebJobsStorage"              = ""
     "AzureWebJobsStorage__accountName" = var.storage_account_name
 
-    "ClimateStorage__ConnectionString" = "@Microsoft.KeyVault(SecretUri=${var.key_vault_uri}secrets/${var.storage_connection_string_secret_name}/)"
-    "ClimateStorage__ContainerName"    = var.storage_container_name
+    "ClimateStorage__ServiceUri"    = var.storage_primary_blob_endpoint
+    "ClimateStorage__ContainerName" = var.storage_container_name
 
     "DanfossApi__BaseUrl"      = var.danfoss_api_base_url
     "DanfossApi__ClientId"     = "@Microsoft.KeyVault(SecretUri=${var.key_vault_uri}secrets/${var.danfoss_client_id_secret_name}/)"
@@ -84,9 +84,10 @@ resource "azurerm_function_app_flex_consumption" "this" {
   tags = var.tags
 }
 
-# Required for storage_authentication_type = "SystemAssignedIdentity": both the deployment
-# package container above and the Functions host's own runtime state need blob data access
-# via the identity.
+# Required for storage_authentication_type = "SystemAssignedIdentity": the deployment package
+# container above, the Functions host's own runtime state (AzureWebJobsStorage, which needs Owner
+# for its blob leases) and the app's climate/alert-state blobs (ClimateStorage__ServiceUri) all use
+# blob data access via the identity.
 resource "azurerm_role_assignment" "function_storage_access" {
   scope                = var.storage_account_id
   role_definition_name = "Storage Blob Data Owner"

@@ -105,7 +105,7 @@
 ### - [x] Feature 3: Infrastructure as Code (Terraform)
 * Author Terraform configurations to support 4 environments (`development`, `test`, `staging`, `production`) and 1 `shared` resource group.
 * Provision an environment-specific Azure Function, Blob Storage, Azure SQL Database, and Virtual Network (VNet) for SQL firewalling.
-* Automate copying Blob Storage connection strings to Azure Function environment variables.
+* Automate wiring Blob Storage into the Azure Function's environment variables: the blob service endpoint (`ClimateStorage__ServiceUri`), reached with the Function App's Managed Identity - no storage connection string or account key in app settings or Key Vault.
 * Enforce **Managed Identity** for securing Azure SQL Database access.
 * Provision a Shared Resource Group containing the Terraform State Blob Storage Container and the central Azure Key Vault.
 

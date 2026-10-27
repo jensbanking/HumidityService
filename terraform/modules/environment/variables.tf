@@ -103,6 +103,12 @@ variable "humidity_alert_recipients" {
   default     = []
 }
 
+variable "blob_data_reader_object_ids" {
+  description = "Object IDs of Entra ID users/groups granted Storage Blob Data Reader on this environment's storage account (portal browsing, local ETL runs)."
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Common tags applied to all resources in this environment."
   type        = map(string)

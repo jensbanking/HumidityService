@@ -1,0 +1,78 @@
+name: CI
+
+# Pull request checks: build/test the .NET solution and validate the Terraform, without
+# touching Azure. Deployment stays in deploy-development.yml (push to main).
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  TF_VERSION: "1.9.8"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - run: dotnet restore HumidityService.sln
+
+      - run: dotnet build HumidityService.sln --configuration Release --no-restore
+
+      - run: dotnet test HumidityService.sln --configuration Release --no-build
+
+  terraform-fmt:
+    name: Terraform fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - run: terraform fmt -check -recursive terraform
+
+  # Validating each root configuration also validates the modules it calls.
+  terraform-validate:
+    name: Terraform validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        directory:
+          - terraform/bootstrap
+          - terraform/environments/development
+          - terraform/environments/test
+          - terraform/environments/staging
+          - terraform/environments/production
+    defaults:
+      run:
+        working-directory: ${{ matrix.directory }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      # -backend=false: validate needs the providers but not the remote state, so no Azure login.
+      - name: Terraform init
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform validate
+        run: terraform validate

@@ -109,4 +109,29 @@ public class ConfigurationLocationProviderTests
 
         Assert.Throws<InvalidOperationException>(() => new ConfigurationLocationProvider(configuration));
     }
+
+    [Fact]
+    public void Constructor_SameRoomTwice_ThrowsNamingTheLocation()
+    {
+        var configuration = Substitute.For<IConfiguration>();
+        configuration["Locations"].Returns(
+            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.864,\"longitude\":9.951,\"humidityThresholds\":{\"Kælder\":75,\"kælder\":80}}]");
+
+        var exception = Assert.Throws<InvalidOperationException>(() => new ConfigurationLocationProvider(configuration));
+
+        Assert.Contains("'lyngby'", exception.Message);
+        Assert.Contains("more than one humidity limit", exception.Message);
+    }
+
+    [Fact]
+    public void Constructor_LocationWithoutSlug_ThrowsNamingItsPosition()
+    {
+        var configuration = Substitute.For<IConfiguration>();
+        configuration["Locations"].Returns(
+            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.864,\"longitude\":9.951},{\"danfossGatewayId\":\"gw-2\",\"latitude\":56.864,\"longitude\":9.951}]");
+
+        var exception = Assert.Throws<InvalidOperationException>(() => new ConfigurationLocationProvider(configuration));
+
+        Assert.Contains("#2", exception.Message);
+    }
 }

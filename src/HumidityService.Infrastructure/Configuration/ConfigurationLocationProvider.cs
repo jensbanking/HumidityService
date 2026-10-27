@@ -40,24 +40,13 @@ public sealed class ConfigurationLocationProvider : ILocationProvider
             throw new InvalidOperationException("Configuration value 'Locations' did not contain any locations.");
         }
 
-        foreach (var location in parsed)
+        for (var i = 0; i < parsed.Count; i++)
         {
-            if (string.IsNullOrWhiteSpace(location.Slug))
+            var errors = parsed[i].Validate();
+            if (errors.Count > 0)
             {
-                throw new InvalidOperationException("A configured location is missing a required 'slug' value.");
-            }
-
-            if (string.IsNullOrWhiteSpace(location.DanfossGatewayId))
-            {
-                throw new InvalidOperationException($"Location '{location.Slug}' is missing a required 'danfossGatewayId' value.");
-            }
-
-            foreach (var (roomName, limit) in location.HumidityThresholds ?? new Dictionary<string, double>())
-            {
-                if (limit is <= 0 or > 100)
-                {
-                    throw new InvalidOperationException($"Location '{location.Slug}' has humidity limit {limit} for room '{roomName}'; it must be greater than 0 and at most 100.");
-                }
+                var name = string.IsNullOrWhiteSpace(parsed[i].Slug) ? $"#{i + 1}" : $"'{parsed[i].Slug}'";
+                throw new InvalidOperationException($"Configured location {name} is invalid: {string.Join(" ", errors)}");
             }
         }
 

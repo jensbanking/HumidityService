@@ -22,4 +22,62 @@ public class LocationTests
 
         Assert.NotEqual(first, second);
     }
+
+    [Theory]
+    [InlineData("Kælder", 75)]
+    [InlineData("kælder", 75)]
+    [InlineData("  Kælder ", 75)]
+    [InlineData("Stuen", 70)]
+    public void GetHumidityThreshold_UsesOverrideForMatchingRoomOtherwiseDefault(string roomName, double expected)
+    {
+        var location = CreateLocation(new Dictionary<string, double> { [" Kælder"] = 75 });
+
+        Assert.Equal(expected, location.GetHumidityThreshold(roomName, 70));
+    }
+
+    [Fact]
+    public void GetHumidityThreshold_NoOverrides_ReturnsDefault()
+    {
+        Assert.Equal(70, CreateLocation(null).GetHumidityThreshold("Kælder", 70));
+    }
+
+    [Fact]
+    public void Validate_ValidLocation_ReturnsNoErrors()
+    {
+        Assert.Empty(CreateLocation(new Dictionary<string, double> { ["Kælder"] = 75, ["Bad"] = 100 }).Validate());
+    }
+
+    [Theory]
+    [InlineData(null, "gw-1", "'slug'")]
+    [InlineData(" ", "gw-1", "'slug'")]
+    [InlineData("lyngby", null, "'danfossGatewayId'")]
+    [InlineData("lyngby", "", "'danfossGatewayId'")]
+    public void Validate_MissingRequiredValue_ReportsIt(string? slug, string? gatewayId, string expectedField)
+    {
+        var errors = new Location(slug!, gatewayId!, 56.864, 9.951).Validate();
+
+        Assert.Contains(errors, e => e.Contains(expectedField));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    [InlineData(100.1)]
+    public void Validate_HumidityLimitOutOfRange_ReportsIt(double limit)
+    {
+        var error = Assert.Single(CreateLocation(new Dictionary<string, double> { ["Kælder"] = limit }).Validate());
+
+        Assert.Contains("Kælder", error);
+    }
+
+    [Fact]
+    public void Validate_SameRoomTwiceIgnoringCaseAndSpaces_ReportsIt()
+    {
+        var error = Assert.Single(CreateLocation(new Dictionary<string, double> { ["Kælder"] = 75, ["kælder "] = 80 }).Validate());
+
+        Assert.Contains("more than one humidity limit", error);
+    }
+
+    private static Location CreateLocation(IReadOnlyDictionary<string, double>? thresholds) =>
+        new("lyngby", "gw-1", 56.864, 9.951, thresholds);
 }

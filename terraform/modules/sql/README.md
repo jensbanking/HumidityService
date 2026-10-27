@@ -4,7 +4,7 @@
 create the contained database user for the Function App's managed identity. That only works
 if the applying machine is inside (or temporarily granted access to) the VNet the SQL server
 firewalls to - it will fail from a normal developer laptop or an unmodified GitHub Actions
-hosted runner. Revisit in Feature 8 (database migration pipeline), which decides how the
+hosted runner. Revisit in Feature 9 (database migration pipeline), which decides how the
 pipeline reaches the VNet (self-hosted runner, `az sql server firewall-rule` scoped to the
 runner's IP for the duration of the job, or an Azure DevOps/GitHub-hosted VNet-injected runner).
 

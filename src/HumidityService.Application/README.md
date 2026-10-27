@@ -18,5 +18,5 @@ Contents:
   `IHumidityAlertStateStore`, `IEmailSender`, `ILocationProvider`).
 
 Planned:
-- ETL orchestration handlers (Feature 7).
-- Payload validation (Feature 10).
+- ETL orchestration handlers (Feature 8).
+- Payload validation (Feature 11).

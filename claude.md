@@ -85,6 +85,8 @@
 
 ## Technical Features Blueprint
 
+A feature may only be marked `[x]` after the `definition-of-done` skill (`.claude/skills/definition-of-done/SKILL.md`) has been run on it and the user has approved its report.
+
 ### - [x] Feature 1: Data Ingestion indoor climate (Azure Function & Storage)
 * Develop a timer-triggered Azure Function running at the top of every hour.
 * Iterate over all configured locations (see Location Configuration); process each location independently so a failure on one does not block the others in the same run.

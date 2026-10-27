@@ -5,10 +5,13 @@ Interfaces, DTOs, CQRS handlers, and validators. Orchestrates ELT flows.
 References: `HumidityService.Domain` only.
 
 Contents:
-- `Services/IndoorClimateIngestionService`, `OutdoorClimateIngestionService` - the hourly
-  ingestion runs: fetch per location, persist the raw JSON, fail the run if any location failed.
+- `Services/ClimateIngestionService` - the hourly ingestion run: per location outdoor, then
+  indoor, then the humidity alert, each step isolated; one timestamp for the whole run; fails the
+  run if any step failed.
+- `Services/OutdoorClimateIngestionService` - one location's outdoor step: fetch, persist the raw
+  JSON, read the current values (`OpenMeteoResponseParser`).
 - `Services/HumidityAlertService`, `HumidityAlertEmailBuilder` - the humidity alert check and
-  email (Feature 5).
+  email, including the outdoor line (Features 5 and 6).
 - `Services/DanfossDeviceListParser` - reads device ids and room readings from the raw Danfoss
   `/ally/devices` response.
 - `Services/ClimateBlobPathBuilder` - the blob paths: `yyyy/MM/dd/HH/apiraw_...` and

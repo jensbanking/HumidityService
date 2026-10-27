@@ -1,3 +1,4 @@
+using System.Text.Json;
 using HumidityService.Application.Interfaces;
 using HumidityService.Application.Models;
 using HumidityService.Application.Services;
@@ -10,110 +11,72 @@ namespace HumidityService.Application.Tests.Services;
 
 public class OutdoorClimateIngestionServiceTests
 {
-    private readonly ILocationProvider _locationProvider = Substitute.For<ILocationProvider>();
+    private const string OpenMeteoJson = "{\"current\":{\"time\":\"2026-10-27T14:00\",\"temperature_2m\":8.3,\"relative_humidity_2m\":92}}";
+
+    private static readonly Location House1 = new("aarhus-house1", "gw-1", 56.1629, 10.2039);
+    private static readonly DateTimeOffset Now = new(2026, 10, 27, 14, 0, 3, TimeSpan.Zero);
+
     private readonly IOpenMeteoApiClient _openMeteoApiClient = Substitute.For<IOpenMeteoApiClient>();
     private readonly IRawClimateBlobStorage _blobStorage = Substitute.For<IRawClimateBlobStorage>();
-    private readonly TimeProvider _timeProvider = Substitute.For<TimeProvider>();
     private readonly ILogger<OutdoorClimateIngestionService> _logger = Substitute.For<ILogger<OutdoorClimateIngestionService>>();
 
-    private OutdoorClimateIngestionService CreateSut() =>
-        new(_locationProvider, _openMeteoApiClient, _blobStorage, _timeProvider, _logger);
+    private OutdoorClimateIngestionService CreateSut() => new(_openMeteoApiClient, _blobStorage, _logger);
 
     [Fact]
-    public async Task IngestAsync_MultipleLocations_FetchesAndSavesEachIndependently()
+    public async Task IngestAsync_SavesRawResponseAndReturnsCurrentReading()
     {
-        var locations = new[]
-        {
-            new Location("aarhus-house1", "gw-aarhus-house1", 56.1629, 10.2039),
-            new Location("odense-house2", "gw-odense-house2", 55.4038, 10.4024),
-        };
-        _locationProvider.GetLocations().Returns(locations);
-        _openMeteoApiClient.GetOutdoorClimateAsync(56.1629, 10.2039, Arg.Any<CancellationToken>()).Returns("{\"aarhus\":true}");
-        _openMeteoApiClient.GetOutdoorClimateAsync(55.4038, 10.4024, Arg.Any<CancellationToken>()).Returns("{\"odense\":true}");
+        _openMeteoApiClient.GetOutdoorClimateAsync(56.1629, 10.2039, Arg.Any<CancellationToken>()).Returns(OpenMeteoJson);
 
-        await CreateSut().IngestAsync(CancellationToken.None);
+        var reading = await CreateSut().IngestAsync(House1, Now, CancellationToken.None);
 
-        await _blobStorage.Received(1).SaveLocationBlobAsync("aarhus-house1", LocationBlobType.Outdoor, Arg.Any<DateTimeOffset>(), "{\"aarhus\":true}", Arg.Any<CancellationToken>());
-        await _blobStorage.Received(1).SaveLocationBlobAsync("odense-house2", LocationBlobType.Outdoor, Arg.Any<DateTimeOffset>(), "{\"odense\":true}", Arg.Any<CancellationToken>());
+        Assert.Equal(new OutdoorClimateReading(8.3, 92), reading);
+        await _blobStorage.Received(1).SaveLocationBlobAsync("aarhus-house1", LocationBlobType.Outdoor, Now, OpenMeteoJson, Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task IngestAsync_TimeAdvancesDuringRun_SavesEveryLocationWithTheRunTimestamp()
+    public async Task IngestAsync_ValuesMissing_SavesRawResponseAndReturnsNullWithWarning()
     {
-        var runStart = new DateTimeOffset(2026, 10, 27, 14, 59, 59, TimeSpan.Zero);
-        _timeProvider.GetUtcNow().Returns(runStart, runStart.AddSeconds(2));
-        _locationProvider.GetLocations().Returns(new[]
-        {
-            new Location("aarhus-house1", "gw-aarhus-house1", 56.1629, 10.2039),
-            new Location("odense-house2", "gw-odense-house2", 55.4038, 10.4024),
-        });
-        _openMeteoApiClient.GetOutdoorClimateAsync(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<CancellationToken>()).Returns("{}");
+        const string json = "{\"current\":{\"temperature_2m\":null,\"relative_humidity_2m\":92}}";
+        _openMeteoApiClient.GetOutdoorClimateAsync(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<CancellationToken>()).Returns(json);
 
-        await CreateSut().IngestAsync(CancellationToken.None);
+        var reading = await CreateSut().IngestAsync(House1, Now, CancellationToken.None);
 
-        await _blobStorage.Received(1).SaveLocationBlobAsync("aarhus-house1", LocationBlobType.Outdoor, runStart, "{}", Arg.Any<CancellationToken>());
-        await _blobStorage.Received(1).SaveLocationBlobAsync("odense-house2", LocationBlobType.Outdoor, runStart, "{}", Arg.Any<CancellationToken>());
+        Assert.Null(reading);
+        await _blobStorage.Received(1).SaveLocationBlobAsync("aarhus-house1", LocationBlobType.Outdoor, Now, json, Arg.Any<CancellationToken>());
+        Assert.Contains(_logger.ReceivedCalls(), call =>
+            call.GetMethodInfo().Name == nameof(ILogger.Log) &&
+            (LogLevel)call.GetArguments()[0]! == LogLevel.Warning &&
+            call.GetArguments()[2]!.ToString()!.Contains("aarhus-house1"));
     }
 
     [Fact]
-    public async Task IngestAsync_OneLocationFetchFails_StillProcessesRemainingLocations()
+    public async Task IngestAsync_MalformedResponse_SavesRawResponseThenThrows()
     {
-        var locations = new[]
-        {
-            new Location("aarhus-house1", "gw-aarhus-house1", 56.1629, 10.2039),
-            new Location("odense-house2", "gw-odense-house2", 55.4038, 10.4024),
-        };
-        _locationProvider.GetLocations().Returns(locations);
-        _openMeteoApiClient.GetOutdoorClimateAsync(56.1629, 10.2039, Arg.Any<CancellationToken>())
+        _openMeteoApiClient.GetOutdoorClimateAsync(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<CancellationToken>()).Returns("not json");
+
+        await Assert.ThrowsAnyAsync<JsonException>(() => CreateSut().IngestAsync(House1, Now, CancellationToken.None));
+
+        await _blobStorage.Received(1).SaveLocationBlobAsync("aarhus-house1", LocationBlobType.Outdoor, Now, "not json", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task IngestAsync_FetchFails_ThrowsAndSavesNothing()
+    {
+        _openMeteoApiClient.GetOutdoorClimateAsync(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<CancellationToken>())
             .Returns<string>(_ => throw new HttpRequestException("boom"));
-        _openMeteoApiClient.GetOutdoorClimateAsync(55.4038, 10.4024, Arg.Any<CancellationToken>()).Returns("{\"odense\":true}");
 
-        await Assert.ThrowsAsync<AggregateException>(() => CreateSut().IngestAsync(CancellationToken.None));
+        await Assert.ThrowsAsync<HttpRequestException>(() => CreateSut().IngestAsync(House1, Now, CancellationToken.None));
 
-        await _blobStorage.DidNotReceive().SaveLocationBlobAsync("aarhus-house1", Arg.Any<LocationBlobType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
-        await _blobStorage.Received(1).SaveLocationBlobAsync("odense-house2", LocationBlobType.Outdoor, Arg.Any<DateTimeOffset>(), "{\"odense\":true}", Arg.Any<CancellationToken>());
+        await _blobStorage.DidNotReceive().SaveLocationBlobAsync(Arg.Any<string>(), Arg.Any<LocationBlobType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task IngestAsync_OneLocationSaveFails_StillProcessesRemainingLocations()
+    public async Task IngestAsync_SaveFails_Throws()
     {
-        var locations = new[]
-        {
-            new Location("aarhus-house1", "gw-aarhus-house1", 56.1629, 10.2039),
-            new Location("odense-house2", "gw-odense-house2", 55.4038, 10.4024),
-        };
-        _locationProvider.GetLocations().Returns(locations);
-        _openMeteoApiClient.GetOutdoorClimateAsync(56.1629, 10.2039, Arg.Any<CancellationToken>()).Returns("{\"aarhus\":true}");
-        _openMeteoApiClient.GetOutdoorClimateAsync(55.4038, 10.4024, Arg.Any<CancellationToken>()).Returns("{\"odense\":true}");
-        _blobStorage.SaveLocationBlobAsync("aarhus-house1", LocationBlobType.Outdoor, Arg.Any<DateTimeOffset>(), "{\"aarhus\":true}", Arg.Any<CancellationToken>())
+        _openMeteoApiClient.GetOutdoorClimateAsync(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<CancellationToken>()).Returns(OpenMeteoJson);
+        _blobStorage.SaveLocationBlobAsync(Arg.Any<string>(), Arg.Any<LocationBlobType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns<Task>(_ => throw new InvalidOperationException("storage down"));
 
-        await Assert.ThrowsAsync<AggregateException>(() => CreateSut().IngestAsync(CancellationToken.None));
-
-        await _blobStorage.Received(1).SaveLocationBlobAsync("odense-house2", LocationBlobType.Outdoor, Arg.Any<DateTimeOffset>(), "{\"odense\":true}", Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task IngestAsync_LocationFails_AggregateContainsTheFailure()
-    {
-        _locationProvider.GetLocations().Returns(new[] { new Location("aarhus-house1", "gw-aarhus-house1", 56.1629, 10.2039) });
-        var fetchFailure = new HttpRequestException("boom");
-        _openMeteoApiClient.GetOutdoorClimateAsync(56.1629, 10.2039, Arg.Any<CancellationToken>())
-            .Returns<string>(_ => throw fetchFailure);
-
-        var exception = await Assert.ThrowsAsync<AggregateException>(() => CreateSut().IngestAsync(CancellationToken.None));
-
-        Assert.Same(fetchFailure, Assert.Single(exception.InnerExceptions));
-    }
-
-    [Fact]
-    public async Task IngestAsync_NoLocationsConfigured_DoesNotCallApiOrStorage()
-    {
-        _locationProvider.GetLocations().Returns(Array.Empty<Location>());
-
-        await CreateSut().IngestAsync(CancellationToken.None);
-
-        await _openMeteoApiClient.DidNotReceive().GetOutdoorClimateAsync(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<CancellationToken>());
-        await _blobStorage.DidNotReceive().SaveLocationBlobAsync(Arg.Any<string>(), Arg.Any<LocationBlobType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateSut().IngestAsync(House1, Now, CancellationToken.None));
     }
 }

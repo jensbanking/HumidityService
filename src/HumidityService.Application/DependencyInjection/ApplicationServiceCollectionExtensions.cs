@@ -13,7 +13,7 @@ public static class ApplicationServiceCollectionExtensions
     /// <summary>Adds Application-layer orchestration services.</summary>
     public static IServiceCollection AddHumidityApplication(this IServiceCollection services)
     {
-        services.AddScoped<IIndoorClimateIngestionService, IndoorClimateIngestionService>();
+        services.AddScoped<IClimateIngestionService, ClimateIngestionService>();
         services.AddScoped<IOutdoorClimateIngestionService, OutdoorClimateIngestionService>();
         services.AddScoped<IHumidityAlertService, HumidityAlertService>();
         services.TryAddSingleton(TimeProvider.System);

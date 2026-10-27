@@ -36,7 +36,7 @@ public sealed class HumidityAlertService : IHumidityAlertService
     }
 
     /// <inheritdoc />
-    public async Task CheckAndNotifyAsync(Location location, string rawDevicesJson, CancellationToken cancellationToken)
+    public async Task CheckAndNotifyAsync(Location location, string rawDevicesJson, OutdoorClimateReading? outdoorReading, CancellationToken cancellationToken)
     {
         var readings = DanfossDeviceListParser.GetRoomReadings(rawDevicesJson);
         if (readings.Count == 0)
@@ -77,7 +77,7 @@ public sealed class HumidityAlertService : IHumidityAlertService
             return;
         }
 
-        await _emailSender.SendAsync(HumidityAlertEmailBuilder.Build(location.Slug, nowLocal, rooms, _settings.Recipients), cancellationToken);
+        await _emailSender.SendAsync(HumidityAlertEmailBuilder.Build(location.Slug, nowLocal, outdoorReading, rooms, _settings.Recipients), cancellationToken);
         await _stateStore.SetLastSentDateAsync(location.Slug, today, cancellationToken);
 
         _logger.LogInformation(

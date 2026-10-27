@@ -6,61 +6,43 @@ using Microsoft.Extensions.Logging;
 namespace HumidityService.Application.Services;
 
 /// <summary>
-/// Default <see cref="IOutdoorClimateIngestionService"/> implementation. Iterates over every
-/// configured location, fetching outdoor climate data from Open-Meteo and persisting the raw
-/// response per location. A failure for one location is logged and does not stop the others; once
-/// every location has been processed, the run fails if any of them did.
+/// Default <see cref="IOutdoorClimateIngestionService"/> implementation. Fetches a location's outdoor
+/// reading from Open-Meteo, saves the raw response unmodified and then reads the current values from it.
+/// Failures propagate to the caller, which decides how they affect the rest of the run.
 /// </summary>
 public sealed class OutdoorClimateIngestionService : IOutdoorClimateIngestionService
 {
-    private readonly ILocationProvider _locationProvider;
     private readonly IOpenMeteoApiClient _openMeteoApiClient;
     private readonly IRawClimateBlobStorage _blobStorage;
-    private readonly TimeProvider _timeProvider;
     private readonly ILogger<OutdoorClimateIngestionService> _logger;
 
     /// <summary>Initializes a new instance of <see cref="OutdoorClimateIngestionService"/>.</summary>
     public OutdoorClimateIngestionService(
-        ILocationProvider locationProvider,
         IOpenMeteoApiClient openMeteoApiClient,
         IRawClimateBlobStorage blobStorage,
-        TimeProvider timeProvider,
         ILogger<OutdoorClimateIngestionService> logger)
     {
-        _locationProvider = locationProvider;
         _openMeteoApiClient = openMeteoApiClient;
         _blobStorage = blobStorage;
-        _timeProvider = timeProvider;
         _logger = logger;
     }
 
     /// <inheritdoc />
-    public async Task IngestAsync(CancellationToken cancellationToken)
+    public async Task<OutdoorClimateReading?> IngestAsync(Location location, DateTimeOffset timestampUtc, CancellationToken cancellationToken)
     {
-        // One timestamp per run, so every location's reading lands in the same hourly blob.
-        var timestampUtc = _timeProvider.GetUtcNow();
-        var failures = new List<Exception>();
-        foreach (var location in _locationProvider.GetLocations())
-        {
-            try
-            {
-                var rawJson = await _openMeteoApiClient.GetOutdoorClimateAsync(location.Latitude, location.Longitude, cancellationToken);
-                await _blobStorage.SaveLocationBlobAsync(location.Slug, LocationBlobType.Outdoor, timestampUtc, rawJson, cancellationToken);
+        var rawJson = await _openMeteoApiClient.GetOutdoorClimateAsync(location.Latitude, location.Longitude, cancellationToken);
+        // ELT: the raw response is stored before anything is read from it.
+        await _blobStorage.SaveLocationBlobAsync(location.Slug, LocationBlobType.Outdoor, timestampUtc, rawJson, cancellationToken);
 
-                _logger.LogInformation("Outdoor climate reading ingested successfully for location {LocationSlug}.", location.Slug);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(ex, "Failed to ingest the outdoor climate reading for location {LocationSlug}.", location.Slug);
-                failures.Add(ex);
-            }
+        var reading = OpenMeteoResponseParser.GetCurrentReading(rawJson);
+        if (reading is null)
+        {
+            _logger.LogWarning(
+                "Open-Meteo response for location {LocationSlug} has no current temperature or humidity; the outdoor reading is unavailable.",
+                location.Slug);
         }
 
-        if (failures.Count > 0)
-        {
-            // Each failure is already logged above; failing the run makes it visible as a failed
-            // function invocation (e.g. for alerting) instead of a silent success.
-            throw new AggregateException($"Outdoor climate ingestion had {failures.Count} failure(s); see the logged errors per location.", failures);
-        }
+        _logger.LogInformation("Outdoor climate reading ingested successfully for location {LocationSlug}.", location.Slug);
+        return reading;
     }
 }

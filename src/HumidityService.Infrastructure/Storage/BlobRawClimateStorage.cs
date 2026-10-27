@@ -1,20 +1,19 @@
 using System.Text;
-using Azure;
 using Azure.Storage.Blobs;
 using HumidityService.Application.Interfaces;
 using HumidityService.Application.Services;
 using HumidityService.Domain.Models;
 using HumidityService.Infrastructure.Configuration;
+using HumidityService.Infrastructure.Resilience;
 using Microsoft.Extensions.Options;
 using Polly;
-using Polly.Retry;
 
 namespace HumidityService.Infrastructure.Storage;
 
 /// <summary>
 /// Persists raw climate readings to Azure Blob Storage (or the local Azurite emulator),
 /// using the standard <see cref="ClimateBlobPathBuilder"/> naming convention. Uploads are
-/// retried with a Polly resilience pipeline on transient storage failures.
+/// retried on transient storage failures (see <see cref="AzureRetryPipeline"/>).
 /// </summary>
 public sealed class BlobRawClimateStorage : IRawClimateBlobStorage
 {
@@ -27,15 +26,7 @@ public sealed class BlobRawClimateStorage : IRawClimateBlobStorage
     {
         _blobServiceClient = blobServiceClient;
         _options = options.Value;
-        _retryPipeline = new ResiliencePipelineBuilder()
-            .AddRetry(new RetryStrategyOptions
-            {
-                ShouldHandle = new PredicateBuilder().Handle<RequestFailedException>(),
-                MaxRetryAttempts = 3,
-                BackoffType = DelayBackoffType.Exponential,
-                Delay = TimeSpan.FromSeconds(1),
-            })
-            .Build();
+        _retryPipeline = AzureRetryPipeline.Create();
     }
 
     /// <inheritdoc />

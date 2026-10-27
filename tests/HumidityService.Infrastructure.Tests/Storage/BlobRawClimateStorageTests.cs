@@ -1,4 +1,6 @@
+using Azure;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using HumidityService.Domain.Models;
 using HumidityService.Infrastructure.Configuration;
 using HumidityService.Infrastructure.Storage;
@@ -50,5 +52,41 @@ public class BlobRawClimateStorageTests
 
         containerClient.Received(1).GetBlobClient("indoor/2026/07/02/indoor_2026_07_02_14.json");
         await blobClient.Received(1).UploadAsync(Arg.Any<Stream>(), overwrite: true, cancellationToken: Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SaveRawReadingAsync_NonTransientFailure_ThrowsWithoutRetry()
+    {
+        var (sut, blobClient) = CreateSutWithUpload(() => throw new RequestFailedException(403, "forbidden"));
+
+        await Assert.ThrowsAsync<RequestFailedException>(() =>
+            sut.SaveRawReadingAsync("aarhus-house1", ClimateReadingType.Indoor, DateTimeOffset.UtcNow, "{}", CancellationToken.None));
+
+        await blobClient.Received(1).UploadAsync(Arg.Any<Stream>(), overwrite: true, cancellationToken: Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SaveRawReadingAsync_TransientFailure_Retries()
+    {
+        var calls = 0;
+        var (sut, blobClient) = CreateSutWithUpload(() =>
+            ++calls == 1 ? throw new RequestFailedException(503, "unavailable") : Substitute.For<Response<BlobContentInfo>>());
+
+        await sut.SaveRawReadingAsync("aarhus-house1", ClimateReadingType.Indoor, DateTimeOffset.UtcNow, "{}", CancellationToken.None);
+
+        await blobClient.Received(2).UploadAsync(Arg.Any<Stream>(), overwrite: true, cancellationToken: Arg.Any<CancellationToken>());
+    }
+
+    private static (BlobRawClimateStorage Sut, BlobClient BlobClient) CreateSutWithUpload(Func<Response<BlobContentInfo>> upload)
+    {
+        var blobClient = Substitute.For<BlobClient>();
+        blobClient.UploadAsync(Arg.Any<Stream>(), overwrite: true, cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult(upload()));
+        var containerClient = Substitute.For<BlobContainerClient>();
+        containerClient.GetBlobClient(Arg.Any<string>()).Returns(blobClient);
+        var blobServiceClient = Substitute.For<BlobServiceClient>();
+        blobServiceClient.GetBlobContainerClient(Arg.Any<string>()).Returns(containerClient);
+
+        return (new BlobRawClimateStorage(blobServiceClient, Options.Create(new ClimateStorageOptions())), blobClient);
     }
 }

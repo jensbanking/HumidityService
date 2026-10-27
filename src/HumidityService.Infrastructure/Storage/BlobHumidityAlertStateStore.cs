@@ -3,16 +3,17 @@ using Azure;
 using Azure.Storage.Blobs;
 using HumidityService.Application.Interfaces;
 using HumidityService.Infrastructure.Configuration;
+using HumidityService.Infrastructure.Resilience;
 using Microsoft.Extensions.Options;
 using Polly;
-using Polly.Retry;
 
 namespace HumidityService.Infrastructure.Storage;
 
 /// <summary>
 /// Stores the date a humidity alert was last sent per location as a small blob,
 /// <c>humidity-alert/{location}.txt</c> containing <c>yyyy-MM-dd</c>, in its own container so it
-/// never mixes with the raw climate readings. Storage calls are retried with a Polly resilience pipeline.
+/// never mixes with the raw climate readings. Storage calls are retried on transient failures
+/// (see <see cref="AzureRetryPipeline"/>).
 /// </summary>
 public sealed class BlobHumidityAlertStateStore : IHumidityAlertStateStore
 {
@@ -27,15 +28,7 @@ public sealed class BlobHumidityAlertStateStore : IHumidityAlertStateStore
     {
         _blobServiceClient = blobServiceClient;
         _options = options.Value;
-        _retryPipeline = new ResiliencePipelineBuilder()
-            .AddRetry(new RetryStrategyOptions
-            {
-                ShouldHandle = new PredicateBuilder().Handle<RequestFailedException>(ex => ex.Status != 404),
-                MaxRetryAttempts = 3,
-                BackoffType = DelayBackoffType.Exponential,
-                Delay = TimeSpan.FromSeconds(1),
-            })
-            .Build();
+        _retryPipeline = AzureRetryPipeline.Create();
     }
 
     /// <inheritdoc />

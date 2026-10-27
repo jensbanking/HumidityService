@@ -6,6 +6,7 @@ using HumidityService.Infrastructure.Configuration;
 using HumidityService.Infrastructure.Email;
 using HumidityService.Infrastructure.ExternalApis.Danfoss;
 using HumidityService.Infrastructure.ExternalApis.OpenMeteo;
+using HumidityService.Infrastructure.Resilience;
 using HumidityService.Infrastructure.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,7 +33,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton(sp =>
         {
             var options = sp.GetRequiredService<IOptions<ClimateStorageOptions>>().Value;
-            return new BlobServiceClient(options.ConnectionString);
+            return new BlobServiceClient(options.ConnectionString, AzureRetryPipeline.WithoutSdkRetries(new BlobClientOptions()));
         });
         services.AddSingleton<IRawClimateBlobStorage, BlobRawClimateStorage>();
         services.AddSingleton<IHumidityAlertStateStore, BlobHumidityAlertStateStore>();
@@ -46,7 +47,7 @@ public static class InfrastructureServiceCollectionExtensions
         // Managed Identity in Azure; falls back to the developer's Azure CLI/Visual Studio login locally.
         services.AddSingleton<IEmailSender>(sp => new AcsEmailSender(
             sp.GetRequiredService<IOptions<AcsEmailOptions>>(),
-            endpoint => new EmailClient(endpoint, new DefaultAzureCredential())));
+            endpoint => new EmailClient(endpoint, new DefaultAzureCredential(), AzureRetryPipeline.WithoutSdkRetries(new EmailClientOptions()))));
 
         services.AddHttpClient<IDanfossAuthClient, DanfossAuthClient>((sp, client) =>
             {

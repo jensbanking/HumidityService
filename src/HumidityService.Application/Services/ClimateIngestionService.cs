@@ -6,36 +6,40 @@ using Microsoft.Extensions.Logging;
 namespace HumidityService.Application.Services;
 
 /// <summary>
-/// Default <see cref="IIndoorClimateIngestionService"/> implementation. Fetches an OAuth token and
-/// the account-wide Danfoss device list once per run and saves it unmodified (<c>apiraw</c>). Then,
-/// for every configured location, it saves the gateway's raw sub-devices response and the
-/// location's own devices extracted from the device list, and runs the humidity alert check on them.
-/// A failure for one location (or its alert) is logged and does not stop the others; once every
-/// location has been processed, the run fails if any of them did.
+/// Default <see cref="IClimateIngestionService"/> implementation. Fetches an OAuth token and the
+/// account-wide Danfoss device list once per run and saves it unmodified (<c>apiraw</c>). Then, for
+/// every configured location, it ingests the outdoor reading, saves the gateway's raw sub-devices
+/// response and the location's own devices extracted from the device list, and runs the humidity
+/// alert check on them with the outdoor reading. Each step is isolated: a failed outdoor step leaves
+/// the alert without an outdoor reading, and a failure for one location does not stop the others;
+/// once every location has been processed, the run fails if any step did.
 /// </summary>
-public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionService
+public sealed class ClimateIngestionService : IClimateIngestionService
 {
     private readonly ILocationProvider _locationProvider;
     private readonly IDanfossAuthClient _authClient;
     private readonly IDanfossClimateApiClient _climateApiClient;
+    private readonly IOutdoorClimateIngestionService _outdoorIngestionService;
     private readonly IRawClimateBlobStorage _blobStorage;
     private readonly IHumidityAlertService _humidityAlertService;
     private readonly TimeProvider _timeProvider;
-    private readonly ILogger<IndoorClimateIngestionService> _logger;
+    private readonly ILogger<ClimateIngestionService> _logger;
 
-    /// <summary>Initializes a new instance of <see cref="IndoorClimateIngestionService"/>.</summary>
-    public IndoorClimateIngestionService(
+    /// <summary>Initializes a new instance of <see cref="ClimateIngestionService"/>.</summary>
+    public ClimateIngestionService(
         ILocationProvider locationProvider,
         IDanfossAuthClient authClient,
         IDanfossClimateApiClient climateApiClient,
+        IOutdoorClimateIngestionService outdoorIngestionService,
         IRawClimateBlobStorage blobStorage,
         IHumidityAlertService humidityAlertService,
         TimeProvider timeProvider,
-        ILogger<IndoorClimateIngestionService> logger)
+        ILogger<ClimateIngestionService> logger)
     {
         _locationProvider = locationProvider;
         _authClient = authClient;
         _climateApiClient = climateApiClient;
+        _outdoorIngestionService = outdoorIngestionService;
         _blobStorage = blobStorage;
         _humidityAlertService = humidityAlertService;
         _timeProvider = timeProvider;
@@ -45,14 +49,17 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
     /// <inheritdoc />
     public async Task IngestAsync(CancellationToken cancellationToken)
     {
+        // One timestamp per run, so a location's indoor and outdoor blobs always share an hourly folder.
+        var timestampUtc = _timeProvider.GetUtcNow();
+
         string accessToken;
         try
         {
             accessToken = await _authClient.GetAccessTokenAsync(cancellationToken);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
-            _logger.LogError(ex, "Failed to obtain a Danfoss OAuth access token; aborting indoor climate ingestion.");
+            _logger.LogError(ex, "Failed to obtain a Danfoss OAuth access token; aborting climate ingestion.");
             throw;
         }
 
@@ -63,13 +70,12 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
             rawJson = await _climateApiClient.GetAllDevicesAsync(accessToken, cancellationToken);
             deviceIds = DanfossDeviceListParser.GetDeviceIds(rawJson);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
-            _logger.LogError(ex, "Failed to fetch or parse the Danfoss device list; aborting indoor climate ingestion.");
+            _logger.LogError(ex, "Failed to fetch or parse the Danfoss device list; aborting climate ingestion.");
             throw;
         }
 
-        var timestampUtc = _timeProvider.GetUtcNow();
         var locations = _locationProvider.GetLocations();
 
         // ELT: the unmodified account-wide response is stored first; everything per location is
@@ -78,17 +84,31 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
         {
             await _blobStorage.SaveApiRawAsync(timestampUtc, rawJson, cancellationToken);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
-            _logger.LogError(ex, "Failed to save the raw Danfoss device list; aborting indoor climate ingestion.");
+            _logger.LogError(ex, "Failed to save the raw Danfoss device list; aborting climate ingestion.");
             throw;
         }
 
         WarnAboutUnconfiguredGateways(rawJson, locations);
 
+        // Failures are caught unless the run itself was cancelled: an HttpClient timeout surfaces as a
+        // TaskCanceledException too, and must not stop the other steps and locations.
         var failures = new List<Exception>();
         foreach (var location in locations)
         {
+            // Outdoor first, so the hour's outdoor reading is there for the alert check.
+            OutdoorClimateReading? outdoorReading = null;
+            try
+            {
+                outdoorReading = await _outdoorIngestionService.IngestAsync(location, timestampUtc, cancellationToken);
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogError(ex, "Failed to ingest the outdoor climate reading for location {LocationSlug}; continuing without it.", location.Slug);
+                failures.Add(ex);
+            }
+
             if (!deviceIds.Contains(location.DanfossGatewayId))
             {
                 _logger.LogError(
@@ -107,7 +127,7 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
 
                 _logger.LogInformation("Indoor climate reading ingested successfully for location {LocationSlug}.", location.Slug);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
                 _logger.LogError(ex, "Failed to ingest the indoor climate reading for location {LocationSlug}.", location.Slug);
                 failures.Add(ex);
@@ -116,9 +136,9 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
 
             try
             {
-                await _humidityAlertService.CheckAndNotifyAsync(location, locationJson, cancellationToken);
+                await _humidityAlertService.CheckAndNotifyAsync(location, locationJson, outdoorReading, timestampUtc, cancellationToken);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
                 _logger.LogError(ex, "Humidity alert check failed for location {LocationSlug}.", location.Slug);
                 failures.Add(ex);
@@ -129,7 +149,7 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
         {
             // Each failure is already logged above; failing the run makes it visible as a failed
             // function invocation (e.g. for alerting) instead of a silent success.
-            throw new AggregateException($"Indoor climate ingestion had {failures.Count} failure(s); see the logged errors per location.", failures);
+            throw new AggregateException($"Climate ingestion had {failures.Count} failure(s); see the logged errors per location.", failures);
         }
     }
 

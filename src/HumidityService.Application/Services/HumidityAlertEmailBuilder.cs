@@ -7,7 +7,7 @@ namespace HumidityService.Application.Services;
 
 /// <summary>
 /// Builds the humidity alert email for a location: subject <c>Fugtigheds alarm fra {location}</c>,
-/// a heading with the location and Danish date/time, and a table (Rum, Temp, Fugt %) of every room with a humidity sensor, with rooms at or above
+/// a heading with the location and, on its second line, the Danish date/time, a line with the outdoor reading (<c>Ude: ...</c>), and a table (Rum, Temp, Fugt %) of every room with a humidity sensor, with rooms at or above
 /// their limit in bold red.
 /// </summary>
 public static class HumidityAlertEmailBuilder
@@ -28,22 +28,29 @@ public static class HumidityAlertEmailBuilder
     /// <summary>Builds the alert email.</summary>
     /// <param name="locationSlug">The location's slug, used in the subject and body.</param>
     /// <param name="readingTimeLocal">When the readings were checked, in Danish local time (shown in the heading).</param>
+    /// <param name="outdoorReading">The location's outdoor reading for the same hour, or <see langword="null"/> when unavailable.</param>
     /// <param name="rooms">Every room in the location that has a humidity sensor, in display order.</param>
     /// <param name="recipients">The recipients' email addresses.</param>
-    public static EmailMessage Build(string locationSlug, DateTime readingTimeLocal, IReadOnlyList<RoomHumidityStatus> rooms, IReadOnlyList<string> recipients)
+    public static EmailMessage Build(string locationSlug, DateTime readingTimeLocal, OutdoorClimateReading? outdoorReading, IReadOnlyList<RoomHumidityStatus> rooms, IReadOnlyList<string> recipients)
     {
         var subject = $"Fugtigheds alarm fra {locationSlug}";
-        var heading = $"Fugtighedsmålinger for {locationSlug} {FormatDanishDateTime(readingTimeLocal)}";
+        var heading = $"Fugtighedsmålinger for {locationSlug}";
+        var readingTime = FormatDanishDateTime(readingTimeLocal);
+        var outdoorLine = FormatOutdoor(outdoorReading);
 
         var html = new StringBuilder()
             .Append("<html><body>")
-            .Append("<p>").Append(HtmlEscape(heading)).Append("</p>")
+            .Append("<p>").Append(HtmlEscape(heading)).Append("<br>").Append(HtmlEscape(readingTime)).Append("</p>")
+            .Append("<p>").Append(HtmlEscape(outdoorLine)).Append("</p>")
             .Append($"<table style=\"{TableStyle}\">")
             .Append($"<tr><th style=\"{HeaderStyle}\">Rum</th><th style=\"{HeaderStyle}\">Temp</th><th style=\"{HeaderStyle}\">Fugt %</th></tr>");
 
         var nameWidth = Math.Max("Rum".Length, rooms.Select(r => r.Reading.RoomName.Length).DefaultIfEmpty(0).Max());
         var text = new StringBuilder()
             .AppendLine(heading)
+            .AppendLine(readingTime)
+            .AppendLine()
+            .AppendLine(outdoorLine)
             .AppendLine()
             .Append("Rum".PadRight(nameWidth)).Append("  ").Append("Temp".PadLeft(7)).Append("  ").AppendLine("Fugt %".PadLeft(6));
 
@@ -78,6 +85,12 @@ public static class HumidityAlertEmailBuilder
 
     private static string FormatDanishDateTime(DateTime value) =>
         string.Create(CultureInfo.InvariantCulture, $"{value.Day}. {DanishMonths[value.Month - 1]} {value.Year} kl. {value:HH:mm}");
+
+    // Open-Meteo reports whole-percent humidity, so it is shown without decimals (e.g. "Ude: 8,3 °C, 92 % fugt").
+    private static string FormatOutdoor(OutdoorClimateReading? reading) =>
+        reading is null
+            ? "Ude: ikke tilgængelig"
+            : string.Format(DanishNumberFormat, "Ude: {0:0.0} °C, {1:0} % fugt", reading.TemperatureCelsius, reading.HumidityPercent);
 
     private static string FormatTemperature(RoomHumidityStatus room) =>
         string.Format(DanishNumberFormat, "{0:0.0} °C", room.Reading.TemperatureCelsius);

@@ -14,6 +14,13 @@ public interface IHumidityAlertService
     /// </summary>
     /// <param name="location">The location the device list belongs to.</param>
     /// <param name="rawDevicesJson">The raw Danfoss Ally <c>/ally/devices</c> response.</param>
+    /// <param name="outdoorReading">
+    /// The location's outdoor reading for the same hour, shown in the email; <see langword="null"/> when it
+    /// is unavailable, which never stops the alert.
+    /// </param>
+    /// <param name="readingTimeUtc">
+    /// The run's timestamp: shown in the email (in Danish time) and deciding which day's once-per-day limit applies.
+    /// </param>
     /// <param name="cancellationToken">Token used to cancel the check.</param>
-    Task CheckAndNotifyAsync(Location location, string rawDevicesJson, CancellationToken cancellationToken);
+    Task CheckAndNotifyAsync(Location location, string rawDevicesJson, OutdoorClimateReading? outdoorReading, DateTimeOffset readingTimeUtc, CancellationToken cancellationToken);
 }

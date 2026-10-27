@@ -17,7 +17,6 @@ public sealed class HumidityAlertService : IHumidityAlertService
     private readonly HumidityAlertSettings _settings;
     private readonly IHumidityAlertStateStore _stateStore;
     private readonly IEmailSender _emailSender;
-    private readonly TimeProvider _timeProvider;
     private readonly ILogger<HumidityAlertService> _logger;
 
     /// <summary>Initializes a new instance of <see cref="HumidityAlertService"/>.</summary>
@@ -25,18 +24,16 @@ public sealed class HumidityAlertService : IHumidityAlertService
         HumidityAlertSettings settings,
         IHumidityAlertStateStore stateStore,
         IEmailSender emailSender,
-        TimeProvider timeProvider,
         ILogger<HumidityAlertService> logger)
     {
         _settings = settings;
         _stateStore = stateStore;
         _emailSender = emailSender;
-        _timeProvider = timeProvider;
         _logger = logger;
     }
 
     /// <inheritdoc />
-    public async Task CheckAndNotifyAsync(Location location, string rawDevicesJson, CancellationToken cancellationToken)
+    public async Task CheckAndNotifyAsync(Location location, string rawDevicesJson, OutdoorClimateReading? outdoorReading, DateTimeOffset readingTimeUtc, CancellationToken cancellationToken)
     {
         var readings = DanfossDeviceListParser.GetRoomReadings(rawDevicesJson);
         if (readings.Count == 0)
@@ -66,7 +63,7 @@ public sealed class HumidityAlertService : IHumidityAlertService
             return;
         }
 
-        var nowLocal = TimeZoneInfo.ConvertTime(_timeProvider.GetUtcNow(), AlertTimeZone).DateTime;
+        var nowLocal = TimeZoneInfo.ConvertTime(readingTimeUtc, AlertTimeZone).DateTime;
         var today = DateOnly.FromDateTime(nowLocal);
         if (await _stateStore.GetLastSentDateAsync(location.Slug, cancellationToken) == today)
         {
@@ -77,7 +74,7 @@ public sealed class HumidityAlertService : IHumidityAlertService
             return;
         }
 
-        await _emailSender.SendAsync(HumidityAlertEmailBuilder.Build(location.Slug, nowLocal, rooms, _settings.Recipients), cancellationToken);
+        await _emailSender.SendAsync(HumidityAlertEmailBuilder.Build(location.Slug, nowLocal, outdoorReading, rooms, _settings.Recipients), cancellationToken);
         await _stateStore.SetLastSentDateAsync(location.Slug, today, cancellationToken);
 
         _logger.LogInformation(

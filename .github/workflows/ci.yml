@@ -33,7 +33,41 @@ jobs:
 
       - run: dotnet build HumidityService.sln --configuration Release --no-restore
 
-      - run: dotnet test HumidityService.sln --configuration Release --no-build
+      - name: Test with coverage
+        run: >
+          dotnet test HumidityService.sln --configuration Release --no-build
+          --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+      # Merges the per-test-project reports so each layer's coverage counts every test project.
+      - name: Coverage report
+        run: |
+          dotnet tool install dotnet-reportgenerator-globaltool --version 5.5.11 --tool-path ./tools
+          ./tools/reportgenerator \
+            "-reports:./coverage/**/coverage.cobertura.xml" \
+            "-targetdir:./coverage-report" \
+            "-reporttypes:MarkdownSummaryGithub;JsonSummary" \
+            "-assemblyfilters:+HumidityService.*"
+          cat ./coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      # CLAUDE.md: at least 80 % line coverage across the Application and Infrastructure layers.
+      - name: Enforce coverage threshold
+        env:
+          MIN_LINE_COVERAGE: 80
+        run: |
+          failed=0
+          for assembly in HumidityService.Application HumidityService.Infrastructure; do
+            coverage=$(jq -r --arg name "$assembly" '.coverage.assemblies[] | select(.name == $name) | .coverage' ./coverage-report/Summary.json)
+            if [ -z "$coverage" ]; then
+              echo "::error::No coverage data for $assembly."
+              failed=1
+            elif awk -v c="$coverage" -v min="$MIN_LINE_COVERAGE" 'BEGIN { exit !(c < min) }'; then
+              echo "::error::$assembly line coverage is $coverage %, below the required $MIN_LINE_COVERAGE %."
+              failed=1
+            else
+              echo "$assembly line coverage: $coverage % (minimum $MIN_LINE_COVERAGE %)."
+            fi
+          done
+          exit $failed
 
   terraform-fmt:
     name: Terraform fmt

@@ -119,7 +119,7 @@ module "function_app" {
   storage_connection_string_secret_name = azurerm_key_vault_secret.storage_connection_string.name
   danfoss_client_id_secret_name         = azurerm_key_vault_secret.danfoss_client_id.name
   danfoss_client_secret_secret_name     = azurerm_key_vault_secret.danfoss_client_secret.name
-  sql_connection_string_secret_name     = "${var.environment}-sql-connection-string"
+  sql_connection_string_secret_name     = azurerm_key_vault_secret.sql_connection_string.name
 
   locations_json                           = jsonencode(var.locations)
   humidity_alert_default_threshold_percent = var.humidity_alert_default_threshold_percent

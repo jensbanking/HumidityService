@@ -75,12 +75,6 @@ module "communication" {
 
 # Secrets live in the shared central Key Vault (from terraform/bootstrap), namespaced per
 # environment, rather than a per-environment vault - matches CLAUDE.md's single central KV.
-resource "azurerm_key_vault_secret" "storage_connection_string" {
-  name         = "${var.environment}-storage-connection-string"
-  value        = module.storage.primary_connection_string
-  key_vault_id = var.shared_key_vault_id
-}
-
 resource "azurerm_key_vault_secret" "danfoss_client_id" {
   name         = "${var.environment}-danfoss-client-id"
   value        = var.danfoss_client_id
@@ -116,10 +110,9 @@ module "function_app" {
   storage_container_name        = module.storage.container_name
   key_vault_uri                 = var.shared_key_vault_uri
 
-  storage_connection_string_secret_name = azurerm_key_vault_secret.storage_connection_string.name
-  danfoss_client_id_secret_name         = azurerm_key_vault_secret.danfoss_client_id.name
-  danfoss_client_secret_secret_name     = azurerm_key_vault_secret.danfoss_client_secret.name
-  sql_connection_string_secret_name     = azurerm_key_vault_secret.sql_connection_string.name
+  danfoss_client_id_secret_name     = azurerm_key_vault_secret.danfoss_client_id.name
+  danfoss_client_secret_secret_name = azurerm_key_vault_secret.danfoss_client_secret.name
+  sql_connection_string_secret_name = azurerm_key_vault_secret.sql_connection_string.name
 
   locations_json                           = jsonencode(var.locations)
   humidity_alert_default_threshold_percent = var.humidity_alert_default_threshold_percent
@@ -145,4 +138,15 @@ resource "azurerm_role_assignment" "function_acs_email_sender" {
   scope                = module.communication.communication_service_id
   role_definition_name = "Communication and Email Service Owner"
   principal_id         = module.function_app.principal_id
+}
+
+# Read-only blob access for people (Entra ID users/groups) who browse the raw readings in the
+# portal or run the ETL locally against this environment's storage with their own login
+# (DefaultAzureCredential). Read-only, so a local test run can never change the raw data.
+resource "azurerm_role_assignment" "blob_data_readers" {
+  for_each = toset(var.blob_data_reader_object_ids)
+
+  scope                = module.storage.storage_account_id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = each.value
 }

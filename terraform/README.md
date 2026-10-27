@@ -84,8 +84,7 @@ Setup per environment:
    `rg-humidity-shared`, from bootstrap):
    - `Key Vault Secrets Officer` on `kv-humidity-shared` - the pipeline doesn't just read secrets,
      it creates/updates them via the `azurerm_key_vault_secret` resources in
-     `modules/environment/main.tf` (storage connection string, Danfoss client id/secret, SQL
-     connection string), which needs write (`Set`) access - `Key Vault Secrets User` is read-only
+     `modules/environment/main.tf` (Danfoss client id/secret, SQL connection string), which needs write (`Set`) access - `Key Vault Secrets User` is read-only
      and fails even on `terraform plan`, which has to read the existing secret value to diff
      against, with a 403 `Forbidden` on `Microsoft.KeyVault/vaults/secrets/getSecret/action`.
    - `Storage Blob Data Contributor`, scoped to the tfstate storage account, so `terraform init`'s
@@ -94,8 +93,9 @@ Setup per environment:
      Account must be specified - or Azure AD Authentication must be enabled", since the service
      principal otherwise has no permission on `rg-humidity-shared` at all.
    - `Role Based Access Control Administrator` on `rg-humidity-<env>`, ideally with a condition
-     limiting it to the roles Terraform assigns to the Function App's managed identity (`Storage
-     Blob Data Owner`, `Communication and Email Service Owner`). `Contributor` can't create role
+     limiting it to the roles Terraform assigns (`Storage Blob Data Owner` and `Communication and
+     Email Service Owner` to the Function App's managed identity, `Storage Blob Data Reader` to the
+     users in `blob_data_reader_object_ids`). `Contributor` can't create role
      assignments, so without this `terraform apply` fails with `AuthorizationFailed` on
      `Microsoft.Authorization/roleAssignments/write` whenever a new one is added.
    - Once per subscription, register the `Microsoft.Communication` resource provider

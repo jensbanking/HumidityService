@@ -143,6 +143,8 @@ Ensure Azurite is running for local blob management. Create a `local.settings.js
 }
 ```
 
+Raw readings go to Azurite by default. To read and write the real blobs in an Azure environment instead (e.g. to try out the ETL against real data), add `"ClimateStorage__ServiceUri": "https://<storage-account>.blob.core.windows.net"` and sign in with `az login`: the storage account is then reached with your own Entra ID login (`DefaultAzureCredential`) rather than a key. Your user needs a blob data role on the account; Terraform grants `Storage Blob Data Reader` to the object IDs in `blob_data_reader_object_ids`, which is read-only, so writes (ingestion runs) will fail against Azure - use Azurite for those.
+
 ### Running Tests
 To execute the automated unit test suite utilizing NSubstitute:
 ```bash

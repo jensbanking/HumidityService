@@ -15,6 +15,9 @@ module "environment" {
   sql_aad_admin_login_name = var.sql_aad_admin_login_name
   sql_aad_admin_object_id  = var.sql_aad_admin_object_id
 
+  # The SQL admin is also the developer who reads the raw blobs (portal, local ETL runs).
+  blob_data_reader_object_ids = [var.sql_aad_admin_object_id]
+
   shared_key_vault_id  = var.shared_key_vault_id
   shared_key_vault_uri = var.shared_key_vault_uri
 

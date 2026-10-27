@@ -53,7 +53,7 @@ variable "storage_account_id" {
 }
 
 variable "storage_primary_blob_endpoint" {
-  description = "Primary Blob service endpoint of the storage account (module.storage output primary_blob_endpoint), used to build the Flex Consumption deployment storage container's endpoint URL."
+  description = "Primary Blob service endpoint of the storage account (module.storage output primary_blob_endpoint), used for ClimateStorage__ServiceUri and to build the Flex Consumption deployment storage container's endpoint URL."
   type        = string
 }
 
@@ -74,11 +74,6 @@ variable "danfoss_client_id_secret_name" {
 
 variable "danfoss_client_secret_secret_name" {
   description = "Name of the Key Vault secret holding DanfossApi__ClientSecret."
-  type        = string
-}
-
-variable "storage_connection_string_secret_name" {
-  description = "Name of the Key Vault secret holding the storage account's connection string (AzureWebJobsStorage / ClimateStorage__ConnectionString)."
   type        = string
 }
 

@@ -48,7 +48,7 @@ public class OutdoorClimateIngestionServiceTests
             .Returns<string>(_ => throw new HttpRequestException("boom"));
         _openMeteoApiClient.GetOutdoorClimateAsync(55.4038, 10.4024, Arg.Any<CancellationToken>()).Returns("{\"odense\":true}");
 
-        await CreateSut().IngestAsync(CancellationToken.None);
+        await Assert.ThrowsAsync<AggregateException>(() => CreateSut().IngestAsync(CancellationToken.None));
 
         await _blobStorage.DidNotReceive().SaveRawReadingAsync("aarhus-house1", Arg.Any<ClimateReadingType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _blobStorage.Received(1).SaveRawReadingAsync("odense-house2", ClimateReadingType.Outdoor, Arg.Any<DateTimeOffset>(), "{\"odense\":true}", Arg.Any<CancellationToken>());
@@ -68,9 +68,22 @@ public class OutdoorClimateIngestionServiceTests
         _blobStorage.SaveRawReadingAsync("aarhus-house1", ClimateReadingType.Outdoor, Arg.Any<DateTimeOffset>(), "{\"aarhus\":true}", Arg.Any<CancellationToken>())
             .Returns<Task>(_ => throw new InvalidOperationException("storage down"));
 
-        await CreateSut().IngestAsync(CancellationToken.None);
+        await Assert.ThrowsAsync<AggregateException>(() => CreateSut().IngestAsync(CancellationToken.None));
 
         await _blobStorage.Received(1).SaveRawReadingAsync("odense-house2", ClimateReadingType.Outdoor, Arg.Any<DateTimeOffset>(), "{\"odense\":true}", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task IngestAsync_LocationFails_AggregateContainsTheFailure()
+    {
+        _locationProvider.GetLocations().Returns(new[] { new Location("aarhus-house1", "gw-aarhus-house1", 56.1629, 10.2039) });
+        var fetchFailure = new HttpRequestException("boom");
+        _openMeteoApiClient.GetOutdoorClimateAsync(56.1629, 10.2039, Arg.Any<CancellationToken>())
+            .Returns<string>(_ => throw fetchFailure);
+
+        var exception = await Assert.ThrowsAsync<AggregateException>(() => CreateSut().IngestAsync(CancellationToken.None));
+
+        Assert.Same(fetchFailure, Assert.Single(exception.InnerExceptions));
     }
 
     [Fact]

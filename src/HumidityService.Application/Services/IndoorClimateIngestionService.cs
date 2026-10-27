@@ -8,7 +8,8 @@ namespace HumidityService.Application.Services;
 /// Default <see cref="IIndoorClimateIngestionService"/> implementation. Fetches an OAuth token
 /// and the Danfoss device list once per run, then persists the raw response for every configured
 /// location whose gateway appears in it, then runs the humidity alert check for that location.
-/// A failure for one location (or its alert) is logged and does not stop the others.
+/// A failure for one location (or its alert) is logged and does not stop the others; once every
+/// location has been processed, the run fails if any of them did.
 /// </summary>
 public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionService
 {
@@ -64,6 +65,7 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
         }
 
         var timestampUtc = DateTimeOffset.UtcNow;
+        var failures = new List<Exception>();
         foreach (var location in _locationProvider.GetLocations())
         {
             if (!deviceIds.Contains(location.DanfossGatewayId))
@@ -72,6 +74,8 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
                     "Danfoss gateway {GatewayId} for location {LocationSlug} was not found in the device list; skipping indoor reading.",
                     location.DanfossGatewayId,
                     location.Slug);
+                failures.Add(new InvalidOperationException(
+                    $"Danfoss gateway '{location.DanfossGatewayId}' for location '{location.Slug}' was not found in the device list."));
                 continue;
             }
 
@@ -84,6 +88,7 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "Failed to ingest the indoor climate reading for location {LocationSlug}.", location.Slug);
+                failures.Add(ex);
                 continue;
             }
 
@@ -94,7 +99,15 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "Humidity alert check failed for location {LocationSlug}.", location.Slug);
+                failures.Add(ex);
             }
+        }
+
+        if (failures.Count > 0)
+        {
+            // Each failure is already logged above; failing the run makes it visible as a failed
+            // function invocation (e.g. for alerting) instead of a silent success.
+            throw new AggregateException($"Indoor climate ingestion had {failures.Count} failure(s); see the logged errors per location.", failures);
         }
     }
 }

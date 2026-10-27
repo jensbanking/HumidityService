@@ -11,5 +11,8 @@ public interface IOutdoorClimateIngestionService
     /// location's reading does not prevent the others from being ingested in the same run.
     /// </summary>
     /// <param name="cancellationToken">Token used to cancel the run.</param>
+    /// <exception cref="AggregateException">
+    /// One or more locations failed. Thrown only after every location has been processed.
+    /// </exception>
     Task IngestAsync(CancellationToken cancellationToken);
 }

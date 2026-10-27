@@ -24,7 +24,7 @@ resource "azurerm_storage_account" "this" {
   tags = var.tags
 }
 
-# Raw indoor/outdoor climate JSON blobs (Feature 1 & 2). Named "{location}/yyyy/MM/dd/{location}_{indoor|outdoor}_yyyy_MM_dd_hour.json"
+# Raw indoor/outdoor climate JSON blobs (Feature 1 & 2). Named "yyyy/MM/dd/HH/apiraw_..." and "yyyy/MM/dd/HH/{location}/{indoor|outdoor|subdevices}_{location}_..."
 # by the Function code itself; Terraform only needs to guarantee the container exists.
 resource "azurerm_storage_container" "climate_readings" {
   name                  = var.container_name

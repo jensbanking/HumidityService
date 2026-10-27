@@ -1,13 +1,15 @@
 using HumidityService.Application.Interfaces;
+using HumidityService.Application.Models;
 using HumidityService.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace HumidityService.Application.Services;
 
 /// <summary>
-/// Default <see cref="IIndoorClimateIngestionService"/> implementation. Fetches an OAuth token
-/// and the Danfoss device list once per run, then persists the raw response for every configured
-/// location whose gateway appears in it, then runs the humidity alert check for that location.
+/// Default <see cref="IIndoorClimateIngestionService"/> implementation. Fetches an OAuth token and
+/// the account-wide Danfoss device list once per run and saves it unmodified (<c>apiraw</c>). Then,
+/// for every configured location, it saves the gateway's raw sub-devices response and the
+/// location's own devices extracted from the device list, and runs the humidity alert check on them.
 /// A failure for one location (or its alert) is logged and does not stop the others; once every
 /// location has been processed, the run fails if any of them did.
 /// </summary>
@@ -68,8 +70,24 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
         }
 
         var timestampUtc = _timeProvider.GetUtcNow();
+        var locations = _locationProvider.GetLocations();
+
+        // ELT: the unmodified account-wide response is stored first; everything per location is
+        // extracted from it afterwards.
+        try
+        {
+            await _blobStorage.SaveApiRawAsync(timestampUtc, rawJson, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Failed to save the raw Danfoss device list; aborting indoor climate ingestion.");
+            throw;
+        }
+
+        WarnAboutUnconfiguredGateways(rawJson, locations);
+
         var failures = new List<Exception>();
-        foreach (var location in _locationProvider.GetLocations())
+        foreach (var location in locations)
         {
             if (!deviceIds.Contains(location.DanfossGatewayId))
             {
@@ -82,9 +100,10 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
                 continue;
             }
 
+            string locationJson;
             try
             {
-                await _blobStorage.SaveRawReadingAsync(location.Slug, ClimateReadingType.Indoor, timestampUtc, rawJson, cancellationToken);
+                locationJson = await ExtractLocationAsync(location, accessToken, rawJson, timestampUtc, cancellationToken);
 
                 _logger.LogInformation("Indoor climate reading ingested successfully for location {LocationSlug}.", location.Slug);
             }
@@ -97,7 +116,7 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
 
             try
             {
-                await _humidityAlertService.CheckAndNotifyAsync(location, rawJson, cancellationToken);
+                await _humidityAlertService.CheckAndNotifyAsync(location, locationJson, cancellationToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -111,6 +130,35 @@ public sealed class IndoorClimateIngestionService : IIndoorClimateIngestionServi
             // Each failure is already logged above; failing the run makes it visible as a failed
             // function invocation (e.g. for alerting) instead of a silent success.
             throw new AggregateException($"Indoor climate ingestion had {failures.Count} failure(s); see the logged errors per location.", failures);
+        }
+    }
+
+    // Saves the gateway's raw sub-devices response and the location's devices (the gateway and its
+    // sub-devices) extracted from the account-wide device list; returns the extracted list.
+    private async Task<string> ExtractLocationAsync(Location location, string accessToken, string rawJson, DateTimeOffset timestampUtc, CancellationToken cancellationToken)
+    {
+        var subDevicesJson = await _climateApiClient.GetSubDevicesAsync(accessToken, location.DanfossGatewayId, cancellationToken);
+        await _blobStorage.SaveLocationBlobAsync(location.Slug, LocationBlobType.SubDevices, timestampUtc, subDevicesJson, cancellationToken);
+
+        var locationDeviceIds = new HashSet<string>(DanfossDeviceListParser.GetDeviceIds(subDevicesJson), StringComparer.Ordinal)
+        {
+            location.DanfossGatewayId,
+        };
+        var locationJson = DanfossDeviceListParser.FilterDevices(rawJson, locationDeviceIds);
+        await _blobStorage.SaveLocationBlobAsync(location.Slug, LocationBlobType.Indoor, timestampUtc, locationJson, cancellationToken);
+
+        return locationJson;
+    }
+
+    // Locations are configured statically; a gateway on the account without a location is only reported.
+    private void WarnAboutUnconfiguredGateways(string rawJson, IReadOnlyList<Location> locations)
+    {
+        foreach (var gatewayId in DanfossDeviceListParser.GetGatewayIds(rawJson))
+        {
+            if (!locations.Any(l => l.DanfossGatewayId == gatewayId))
+            {
+                _logger.LogWarning("Danfoss gateway {GatewayId} is on the account but not configured as a location; its devices are only in the raw device list.", gatewayId);
+            }
         }
     }
 }

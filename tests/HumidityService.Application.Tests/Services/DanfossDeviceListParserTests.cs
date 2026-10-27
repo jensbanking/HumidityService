@@ -36,6 +36,41 @@ public class DanfossDeviceListParserTests
     }
 
     [Fact]
+    public void GetGatewayIds_ReturnsOnlyGatewayDevices()
+    {
+        const string json = """
+            {"result":[
+              {"id":"gw-1","device_type":"Danfoss Ally™ Gateway"},
+              {"id":"rs-1","device_type":"Danfoss Ally™ Room Sensor"},
+              {"id":"trv-1","device_type":"Danfoss Ally™ Radiator Thermostat"},
+              {"id":"no-type"}
+            ]}
+            """;
+
+        Assert.Equal(new[] { "gw-1" }, DanfossDeviceListParser.GetGatewayIds(json));
+    }
+
+    [Fact]
+    public void FilterDevices_KeepsOnlyListedDevicesAndOtherTopLevelPropertiesUnchanged()
+    {
+        const string json = """
+            {"result":[{"id":"gw-1","name":"Lyngby","device_type":"Danfoss Ally™ Gateway"},{"id":"rs-1","name":"Kælder","status":[{"code":"humidity_value","value":597}]},{"id":"rs-2","name":"Andet hus"},{"name":"no id"}],"t":1793111344911}
+            """;
+
+        var filtered = DanfossDeviceListParser.FilterDevices(json, new HashSet<string> { "gw-1", "rs-1" });
+
+        Assert.Equal(
+            """{"result":[{"id":"gw-1","name":"Lyngby","device_type":"Danfoss Ally™ Gateway"},{"id":"rs-1","name":"Kælder","status":[{"code":"humidity_value","value":597}]}],"t":1793111344911}""",
+            filtered);
+    }
+
+    [Fact]
+    public void FilterDevices_MissingResultArray_ThrowsJsonException()
+    {
+        Assert.Throws<JsonException>(() => DanfossDeviceListParser.FilterDevices("{\"devices\":[]}", new HashSet<string>()));
+    }
+
+    [Fact]
     public void GetRoomReadings_ReturnsOnlyDevicesWithTemperatureAndHumidity_Unscaled()
     {
         const string json = """

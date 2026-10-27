@@ -1,8 +1,8 @@
 using System.Text;
 using Azure.Storage.Blobs;
 using HumidityService.Application.Interfaces;
+using HumidityService.Application.Models;
 using HumidityService.Application.Services;
-using HumidityService.Domain.Models;
 using HumidityService.Infrastructure.Configuration;
 using HumidityService.Infrastructure.Resilience;
 using Microsoft.Extensions.Options;
@@ -11,8 +11,8 @@ using Polly;
 namespace HumidityService.Infrastructure.Storage;
 
 /// <summary>
-/// Persists raw climate readings to Azure Blob Storage (or the local Azurite emulator),
-/// using the standard <see cref="ClimateBlobPathBuilder"/> naming convention. Uploads are
+/// Persists an hour's climate data to Azure Blob Storage (or the local Azurite emulator),
+/// using the <see cref="ClimateBlobPathBuilder"/> paths. Uploads are
 /// retried on transient storage failures (see <see cref="AzureRetryPipeline"/>).
 /// </summary>
 public sealed class BlobRawClimateStorage : IRawClimateBlobStorage
@@ -30,10 +30,16 @@ public sealed class BlobRawClimateStorage : IRawClimateBlobStorage
     }
 
     /// <inheritdoc />
-    public async Task SaveRawReadingAsync(string locationSlug, ClimateReadingType readingType, DateTimeOffset timestampUtc, string rawJson, CancellationToken cancellationToken)
+    public Task SaveApiRawAsync(DateTimeOffset timestampUtc, string rawJson, CancellationToken cancellationToken) =>
+        UploadAsync(ClimateBlobPathBuilder.BuildApiRaw(timestampUtc), rawJson, cancellationToken);
+
+    /// <inheritdoc />
+    public Task SaveLocationBlobAsync(string locationSlug, LocationBlobType blobType, DateTimeOffset timestampUtc, string json, CancellationToken cancellationToken) =>
+        UploadAsync(ClimateBlobPathBuilder.Build(locationSlug, blobType, timestampUtc), json, cancellationToken);
+
+    private async Task UploadAsync(string blobName, string json, CancellationToken cancellationToken)
     {
         var containerClient = _blobServiceClient.GetBlobContainerClient(_options.ContainerName);
-        var blobName = ClimateBlobPathBuilder.Build(locationSlug, readingType, timestampUtc);
         var blobClient = containerClient.GetBlobClient(blobName);
 
         await _retryPipeline.ExecuteAsync(
@@ -41,7 +47,7 @@ public sealed class BlobRawClimateStorage : IRawClimateBlobStorage
             {
                 await containerClient.CreateIfNotExistsAsync(cancellationToken: ct);
 
-                using var content = new MemoryStream(Encoding.UTF8.GetBytes(rawJson));
+                using var content = new MemoryStream(Encoding.UTF8.GetBytes(json));
                 await blobClient.UploadAsync(content, overwrite: true, cancellationToken: ct);
             },
             cancellationToken);

@@ -1,7 +1,7 @@
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using HumidityService.Domain.Models;
+using HumidityService.Application.Models;
 using HumidityService.Infrastructure.Configuration;
 using HumidityService.Infrastructure.Storage;
 using Microsoft.Extensions.Options;
@@ -13,46 +13,62 @@ namespace HumidityService.Infrastructure.Tests.Storage;
 public class BlobRawClimateStorageTests
 {
     [Fact]
-    public async Task SaveRawReadingAsync_UploadsToExpectedContainerAndBlobName()
+    public async Task SaveLocationBlobAsync_UploadsToExpectedContainerAndBlobName()
     {
-        var blobClient = Substitute.For<BlobClient>();
-        var containerClient = Substitute.For<BlobContainerClient>();
-        containerClient.GetBlobClient(Arg.Any<string>()).Returns(blobClient);
+        var (sut, blobServiceClient, containerClient, blobClient) = CreateSut();
 
-        var blobServiceClient = Substitute.For<BlobServiceClient>();
-        blobServiceClient.GetBlobContainerClient("climate-readings").Returns(containerClient);
-
-        var options = Options.Create(new ClimateStorageOptions { ContainerName = "climate-readings" });
-        var sut = new BlobRawClimateStorage(blobServiceClient, options);
-        var timestamp = new DateTimeOffset(2026, 7, 2, 14, 0, 0, TimeSpan.Zero);
-
-        await sut.SaveRawReadingAsync("aarhus-house1", ClimateReadingType.Indoor, timestamp, "{\"humidity\":42}", CancellationToken.None);
+        await sut.SaveLocationBlobAsync("lyngby", LocationBlobType.Indoor, Timestamp, "{\"result\":[]}", CancellationToken.None);
 
         blobServiceClient.Received(1).GetBlobContainerClient("climate-readings");
-        containerClient.Received(1).GetBlobClient("aarhus-house1/2026/07/02/aarhus-house1_indoor_2026_07_02_14.json");
+        containerClient.Received(1).GetBlobClient("2026/07/02/14/lyngby/indoor_lyngby_2026_07_02_14.json");
         await containerClient.Received(1).CreateIfNotExistsAsync(cancellationToken: Arg.Any<CancellationToken>());
         await blobClient.Received(1).UploadAsync(Arg.Any<Stream>(), overwrite: true, cancellationToken: Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task SaveRawReadingAsync_NonTransientFailure_ThrowsWithoutRetry()
+    public async Task SaveApiRawAsync_UploadsToHourFolder()
+    {
+        var (sut, _, containerClient, blobClient) = CreateSut();
+
+        await sut.SaveApiRawAsync(Timestamp, "{\"result\":[]}", CancellationToken.None);
+
+        containerClient.Received(1).GetBlobClient("2026/07/02/14/apiraw_2026_07_02_14.json");
+        await blobClient.Received(1).UploadAsync(Arg.Any<Stream>(), overwrite: true, cancellationToken: Arg.Any<CancellationToken>());
+    }
+
+    private static readonly DateTimeOffset Timestamp = new(2026, 7, 2, 14, 0, 0, TimeSpan.Zero);
+
+    private static (BlobRawClimateStorage Sut, BlobServiceClient BlobServiceClient, BlobContainerClient ContainerClient, BlobClient BlobClient) CreateSut()
+    {
+        var blobClient = Substitute.For<BlobClient>();
+        var containerClient = Substitute.For<BlobContainerClient>();
+        containerClient.GetBlobClient(Arg.Any<string>()).Returns(blobClient);
+        var blobServiceClient = Substitute.For<BlobServiceClient>();
+        blobServiceClient.GetBlobContainerClient("climate-readings").Returns(containerClient);
+        var options = Options.Create(new ClimateStorageOptions { ContainerName = "climate-readings" });
+
+        return (new BlobRawClimateStorage(blobServiceClient, options), blobServiceClient, containerClient, blobClient);
+    }
+
+    [Fact]
+    public async Task SaveLocationBlobAsync_NonTransientFailure_ThrowsWithoutRetry()
     {
         var (sut, blobClient) = CreateSutWithUpload(() => throw new RequestFailedException(403, "forbidden"));
 
         await Assert.ThrowsAsync<RequestFailedException>(() =>
-            sut.SaveRawReadingAsync("aarhus-house1", ClimateReadingType.Indoor, DateTimeOffset.UtcNow, "{}", CancellationToken.None));
+            sut.SaveLocationBlobAsync("aarhus-house1", LocationBlobType.Indoor, DateTimeOffset.UtcNow, "{}", CancellationToken.None));
 
         await blobClient.Received(1).UploadAsync(Arg.Any<Stream>(), overwrite: true, cancellationToken: Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task SaveRawReadingAsync_TransientFailure_Retries()
+    public async Task SaveLocationBlobAsync_TransientFailure_Retries()
     {
         var calls = 0;
         var (sut, blobClient) = CreateSutWithUpload(() =>
             ++calls == 1 ? throw new RequestFailedException(503, "unavailable") : Substitute.For<Response<BlobContentInfo>>());
 
-        await sut.SaveRawReadingAsync("aarhus-house1", ClimateReadingType.Indoor, DateTimeOffset.UtcNow, "{}", CancellationToken.None);
+        await sut.SaveLocationBlobAsync("aarhus-house1", LocationBlobType.Indoor, DateTimeOffset.UtcNow, "{}", CancellationToken.None);
 
         await blobClient.Received(2).UploadAsync(Arg.Any<Stream>(), overwrite: true, cancellationToken: Arg.Any<CancellationToken>());
     }

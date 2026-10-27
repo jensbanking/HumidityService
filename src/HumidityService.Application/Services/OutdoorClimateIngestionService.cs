@@ -1,4 +1,5 @@
 using HumidityService.Application.Interfaces;
+using HumidityService.Application.Models;
 using HumidityService.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -44,7 +45,7 @@ public sealed class OutdoorClimateIngestionService : IOutdoorClimateIngestionSer
             try
             {
                 var rawJson = await _openMeteoApiClient.GetOutdoorClimateAsync(location.Latitude, location.Longitude, cancellationToken);
-                await _blobStorage.SaveRawReadingAsync(location.Slug, ClimateReadingType.Outdoor, timestampUtc, rawJson, cancellationToken);
+                await _blobStorage.SaveLocationBlobAsync(location.Slug, LocationBlobType.Outdoor, timestampUtc, rawJson, cancellationToken);
 
                 _logger.LogInformation("Outdoor climate reading ingested successfully for location {LocationSlug}.", location.Slug);
             }

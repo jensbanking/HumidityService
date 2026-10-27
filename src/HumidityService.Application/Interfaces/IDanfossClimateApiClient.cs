@@ -14,4 +14,14 @@ public interface IDanfossClimateApiClient
     /// <param name="cancellationToken">Token used to cancel the request.</param>
     /// <returns>The unmodified raw JSON response body.</returns>
     Task<string> GetAllDevicesAsync(string accessToken, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Fetches the raw JSON list of the devices paired with a gateway, shaped like the device list
+    /// (<c>{"result":[{"id":"...","name":"..."}, ...]}</c>) but without device status.
+    /// </summary>
+    /// <param name="accessToken">A valid OAuth bearer access token.</param>
+    /// <param name="gatewayId">The Danfoss Ally gateway's device id.</param>
+    /// <param name="cancellationToken">Token used to cancel the request.</param>
+    /// <returns>The unmodified raw JSON response body.</returns>
+    Task<string> GetSubDevicesAsync(string accessToken, string gatewayId, CancellationToken cancellationToken);
 }

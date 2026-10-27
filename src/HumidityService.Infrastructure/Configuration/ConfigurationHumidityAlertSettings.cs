@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using HumidityService.Application.Models;
+using HumidityService.Domain.Models;
 using Microsoft.Extensions.Configuration;
 
 namespace HumidityService.Infrastructure.Configuration;
@@ -22,10 +23,10 @@ public static class ConfigurationHumidityAlertSettings
     {
         var section = configuration.GetSection(SectionName);
 
-        var threshold = HumidityAlertSettings.DefaultThreshold;
+        var threshold = HumidityThreshold.Default;
         var rawThreshold = section["DefaultThresholdPercent"];
         if (!string.IsNullOrWhiteSpace(rawThreshold) &&
-            (!double.TryParse(rawThreshold, NumberStyles.Float, CultureInfo.InvariantCulture, out threshold) || threshold is <= 0 or > 100))
+            (!double.TryParse(rawThreshold, NumberStyles.Float, CultureInfo.InvariantCulture, out threshold) || !HumidityThreshold.IsValid(threshold)))
         {
             throw new InvalidOperationException($"Configuration value '{SectionName}:DefaultThresholdPercent' must be a number greater than 0 and at most 100, but was '{rawThreshold}'.");
         }

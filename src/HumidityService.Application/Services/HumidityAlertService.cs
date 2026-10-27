@@ -45,10 +45,10 @@ public sealed class HumidityAlertService : IHumidityAlertService
             return;
         }
 
-        var overrides = GetOverrides(location, readings);
+        WarnAboutUnmatchedOverrides(location, readings);
         var rooms = readings
             .OrderBy(r => r.RoomName, StringComparer.OrdinalIgnoreCase)
-            .Select(r => new RoomHumidityStatus(r, overrides.TryGetValue(r.RoomName, out var limit) ? limit : _settings.DefaultThresholdPercent))
+            .Select(r => new RoomHumidityStatus(r, location.GetHumidityThreshold(r.RoomName, _settings.DefaultThresholdPercent)))
             .ToList();
 
         var roomsAbove = rooms.Where(r => r.IsAboveThreshold).Select(r => r.Reading.RoomName).ToList();
@@ -86,30 +86,17 @@ public sealed class HumidityAlertService : IHumidityAlertService
             roomsAbove);
     }
 
-    private Dictionary<string, double> GetOverrides(Location location, IReadOnlyList<RoomClimateReading> readings)
+    private void WarnAboutUnmatchedOverrides(Location location, IReadOnlyList<RoomClimateReading> readings)
     {
-        var overrides = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-        if (location.HumidityThresholds is null)
+        foreach (var roomName in location.HumidityThresholds?.Keys ?? [])
         {
-            return overrides;
-        }
-
-        var roomNames = readings.Select(r => r.RoomName).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var (key, limit) in location.HumidityThresholds)
-        {
-            // Trimmed to match the trimmed room names from DanfossDeviceListParser.
-            var roomName = key.Trim();
-            if (!roomNames.Contains(roomName))
+            if (!readings.Any(r => Location.IsSameRoom(r.RoomName, roomName)))
             {
                 _logger.LogWarning(
                     "Humidity limit override for room {RoomName} in location {LocationSlug} matches no room with a humidity sensor; was the room renamed?",
-                    roomName,
+                    roomName.Trim(),
                     location.Slug);
             }
-
-            overrides[roomName] = limit;
         }
-
-        return overrides;
     }
 }

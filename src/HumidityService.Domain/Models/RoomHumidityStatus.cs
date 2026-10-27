@@ -1,6 +1,4 @@
-using HumidityService.Domain.Models;
-
-namespace HumidityService.Application.Models;
+namespace HumidityService.Domain.Models;
 
 /// <summary>
 /// A room's reading evaluated against its effective humidity limit.

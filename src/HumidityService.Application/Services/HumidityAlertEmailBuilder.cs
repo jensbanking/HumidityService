@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using HumidityService.Application.Models;
+using HumidityService.Domain.Models;
 
 namespace HumidityService.Application.Services;
 

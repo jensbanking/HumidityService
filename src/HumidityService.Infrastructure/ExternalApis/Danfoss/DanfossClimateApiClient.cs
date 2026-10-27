@@ -19,9 +19,16 @@ public sealed class DanfossClimateApiClient : IDanfossClimateApiClient
     }
 
     /// <inheritdoc />
-    public async Task<string> GetAllDevicesAsync(string accessToken, CancellationToken cancellationToken)
+    public Task<string> GetAllDevicesAsync(string accessToken, CancellationToken cancellationToken) =>
+        GetAsync("ally/devices", accessToken, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<string> GetSubDevicesAsync(string accessToken, string gatewayId, CancellationToken cancellationToken) =>
+        GetAsync($"ally/devices/{Uri.EscapeDataString(gatewayId)}/sub-devices", accessToken, cancellationToken);
+
+    private async Task<string> GetAsync(string requestUri, string accessToken, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "ally/devices");
+        using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);

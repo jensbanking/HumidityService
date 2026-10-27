@@ -53,7 +53,7 @@
   - `latitude` / `longitude` — the coordinate pair used for the Open-Meteo outdoor query.
   - `humidityThresholds` (optional) — per-room humidity alert limits keyed by room name, overriding the global default (see Feature 5).
 - The full set of locations is stored as a list (e.g., a JSON app setting, config file, or small config table) rather than as individual scalar environment variables, since cardinality is >1 per environment.
-- Indoor and outdoor ingestion (Features 1 & 2) iterate over this list on every run, producing one blob per location per run for each of indoor/outdoor.
+- Indoor and outdoor ingestion (Features 1 & 2) iterate over this list on every run, producing one blob per location per run for each of indoor/outdoor (plus the account-wide raw Danfoss response once per run). Danfoss gateways on the account that aren't configured are only logged, never processed.
 - Each location's fetch/write is isolated from the others — a failure processing one location must not prevent the others from being fetched and persisted in the same run.
 
 ## Architecture & Code Quality Requirements
@@ -92,8 +92,10 @@ A feature may only be marked `[x]` after the `definition-of-done` skill (`.claud
 * Iterate over all configured locations (see Location Configuration); process each location independently so a failure on one does not block the others in the same run.
 * Fetch OAuth tokens from `https://api.danfoss.com/oauth2/token`.
 * Fetch climate data from `https://api.danfoss.com/ally/devices`, using each location's `danfossGatewayId`.
-* Persist raw JSON responses directly to Azure Blob Storage, one blob per location.
-* Enforce naming format: `{location}/yyyy/MM/dd/{location}_indoor_yyyy_MM_dd_hour.json`, where `{location}` is the location's `slug`.
+* Persist the unmodified, account-wide `/ally/devices` response first, once per run: `yyyy/MM/dd/HH/apiraw_yyyy_MM_dd_HH.json`. If that fails, the run aborts.
+* Then, per configured location, call `https://api.danfoss.com/ally/devices/{danfossGatewayId}/sub-devices` and persist that raw response as `yyyy/MM/dd/HH/{location}/subdevices_{location}_yyyy_MM_dd_HH.json`.
+* Extract the location's own devices (its gateway and sub-devices) from the account-wide response and persist them as `yyyy/MM/dd/HH/{location}/indoor_{location}_yyyy_MM_dd_HH.json`; the humidity alert (Feature 5) runs on this extract.
+* `{location}` is the location's `slug`; dates and hours are UTC; file names are lowercase.
 * Fallback to local emulator storage (Azurite) as default configuration.
 
 ### - [x] Feature 2: Expand the Azure function with Outdoor Climate (Azure Function & Storage)
@@ -101,7 +103,7 @@ A feature may only be marked `[x]` after the `definition-of-done` skill (`.claud
 * Iterate over all configured locations (see Location Configuration); process each location independently so a failure on one does not block the others in the same run.
 * Query specific parameters (`temperature_2m,relative_humidity_2m`) filtered by each location's `latitude/longitude`.
 * Persist raw JSON responses directly to Azure Blob Storage, one blob per location.
-* Enforce naming format: `{location}/yyyy/MM/dd/{location}_outdoor_yyyy_MM_dd_hour.json`, where `{location}` is the same `slug` used in Feature 1, so indoor and outdoor readings correlate.
+* Enforce naming format: `yyyy/MM/dd/HH/{location}/outdoor_{location}_yyyy_MM_dd_HH.json` (UTC), where `{location}` is the same `slug` used in Feature 1, so indoor and outdoor readings for an hour sit side by side.
 * Fallback to local emulator storage (Azurite) as default configuration.
 
 ### - [x] Feature 3: Infrastructure as Code (Terraform)
@@ -119,7 +121,7 @@ A feature may only be marked `[x]` after the `definition-of-done` skill (`.claud
 * Covers the `development` environment only (`deploy-development.yml`); `test`, `staging` and `production` are deferred to Feature 11.
 
 ### - [x] Feature 5: Humidity Alert Email Notifications (Azure Communication Services)
-* Right after each location's Danfoss Ally response is persisted (hourly), check the humidity of every room with a humidity sensor (`humidity_value`, scaled by 10 like `temp_current`).
+* Right after each location's indoor extract (its own devices, see Feature 1) is persisted (hourly), check the humidity of every room with a humidity sensor (`humidity_value`, scaled by 10 like `temp_current`).
 * A room alerts when its humidity is `>=` its limit: a global default (`70` %), or an optional per-room override (`humidityThresholds` in the location config, keyed case-insensitively by Danfoss room name).
 * Send at most one email per location per day (`Europe/Copenhagen`) via **Azure Communication Services (ACS) Email** to a configurable recipient list; persist the last-sent date so the limit survives restarts.
 * Subject `Fugtigheds alarm fra {location}`; body starts `Fugtighedsmålinger for {location} {Danish date and time}`, then a table (`Rum`, `Temp`, `Fugt %`) of all rooms with a humidity sensor, rooms over their limit in **bold red**.
@@ -138,7 +140,7 @@ A feature may only be marked `[x]` after the `definition-of-done` skill (`.claud
 * Build a core process to parse raw JSON source structures using the Danfoss OpenAPI specification.
 * Chain execution within the Azure Function immediately following successful raw data ingestion.
 * Support an argument parameter to trigger processing independently without pulling fresh API data.
-* Enable batch processing to backfill and catch up on unprocessed blobs from storage, keyed by both location and date so backfill can target a specific location without reprocessing others.
+* Enable batch processing to backfill and catch up on unprocessed blobs from storage, keyed by both location and date so backfill can target a specific location without reprocessing others. Blob paths are date/hour first (`yyyy/MM/dd/HH/{location}/...`), so a location's backfill lists by date prefix and filters on the `{location}` segment.
 * Guarantee strict **Idempotency** for all data entries written to the Data Warehouse.
 * **Open decision (revisit when building this feature):** "chain immediately following ingestion" above would hit Azure SQL every hour, which works against the serverless database's auto-pause (Feature 3 sets `auto_pause_delay_in_minutes = 60`, Azure's minimum). Consider decoupling the DWH sync onto its own, less frequent schedule (e.g. every few hours or once daily) instead of running it right after every hourly ingestion. Decide the actual cadence here, not earlier - it has no impact on the Feature 3 infrastructure.
 

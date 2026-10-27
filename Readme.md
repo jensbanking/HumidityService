@@ -58,8 +58,8 @@ flowchart LR
 
 1. A timer-triggered Azure Function executes hourly and iterates over all configured locations.
 2. For each location, indoor climate data is retrieved from the Danfoss Ally API and outdoor climate data is retrieved from Open-Meteo. A failure for one location does not block processing of the others.
-3. Raw JSON payloads are persisted to Azure Blob Storage, one blob per location per source (indoor/outdoor).
-4. Right after the indoor payload is persisted, the humidity of every room with a humidity sensor is checked against its limit, and an email alert is sent for the location if any room is at or above it (see [Humidity Alerts](#humidity-alerts)).
+3. Raw JSON payloads are persisted to Azure Blob Storage under the hour they were captured (UTC): the account-wide Danfoss response once (`yyyy/MM/dd/HH/apiraw_….json`), and per location the raw Open-Meteo response, the raw Danfoss sub-devices response, and the location's own devices extracted from the account-wide response (`yyyy/MM/dd/HH/{location}/{outdoor|subdevices|indoor}_{location}_….json`).
+4. Right after the location's indoor extract is persisted, the humidity of every room with a humidity sensor is checked against its limit, and an email alert is sent for the location if any room is at or above it (see [Humidity Alerts](#humidity-alerts)).
 5. Processing services transform raw payloads into dimensional models, validating incoming payloads and routing corrupt or unparseable files to a dedicated `dead-letter` container.
 6. Fact and dimension records are synchronized into Azure SQL Database.
 7. Power BI consumes the dimensional model for reporting.

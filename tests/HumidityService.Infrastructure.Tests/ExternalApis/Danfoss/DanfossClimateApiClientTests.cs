@@ -36,4 +36,32 @@ public class DanfossClimateApiClientTests
 
         await Assert.ThrowsAsync<HttpRequestException>(() => sut.GetAllDevicesAsync("token-abc", CancellationToken.None));
     }
+
+    [Fact]
+    public async Task GetSubDevicesAsync_SendsAuthorizedGetRequestForGatewayAndReturnsRawBody()
+    {
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{\"result\":[]}", Encoding.UTF8, "application/json"),
+        });
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://api.danfoss.com") };
+        var sut = new DanfossClimateApiClient(httpClient);
+
+        var rawJson = await sut.GetSubDevicesAsync("token-abc", "gw-1", CancellationToken.None);
+
+        Assert.Equal("{\"result\":[]}", rawJson);
+        Assert.Equal(HttpMethod.Get, handler.LastRequest!.Method);
+        Assert.Equal("https://api.danfoss.com/ally/devices/gw-1/sub-devices", handler.LastRequest.RequestUri!.ToString());
+        Assert.Equal("token-abc", handler.LastRequest.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
+    public async Task GetSubDevicesAsync_NonSuccessStatusCode_Throws()
+    {
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://api.danfoss.com") };
+        var sut = new DanfossClimateApiClient(httpClient);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => sut.GetSubDevicesAsync("token-abc", "gw-1", CancellationToken.None));
+    }
 }

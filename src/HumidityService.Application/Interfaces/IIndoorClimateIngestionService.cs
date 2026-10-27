@@ -6,14 +6,14 @@ namespace HumidityService.Application.Interfaces;
 public interface IIndoorClimateIngestionService
 {
     /// <summary>
-    /// Fetches the full device list for the authenticated Danfoss account once, then persists the
-    /// raw response for each configured location whose gateway id appears in it. Devices carry no
-    /// reference to their gateway, so the whole account response is stored per location.
+    /// Fetches the account-wide Danfoss device list once and saves it unmodified (<c>apiraw</c>), then,
+    /// for each configured location, saves its gateway's raw <c>sub-devices</c> response and its own
+    /// devices extracted from the device list, and runs the humidity alert check on them.
     /// </summary>
     /// <param name="cancellationToken">Token used to cancel the run.</param>
     /// <exception cref="AggregateException">
-    /// One or more locations failed (gateway missing, save failed or humidity alert failed). Thrown only
-    /// after every location has been processed, so a failure never stops the others.
+    /// One or more locations failed (gateway missing, sub-devices fetch or save failed, or humidity alert
+    /// failed). Thrown only after every location has been processed, so a failure never stops the others.
     /// </exception>
     Task IngestAsync(CancellationToken cancellationToken);
 }

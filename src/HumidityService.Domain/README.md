@@ -13,6 +13,7 @@ Contents:
 - `HumidityThreshold` - the default humidity limit (70 %) and the valid range (above 0, at most 100).
 - `RoomClimateReading` - a room's current temperature and humidity.
 - `RoomHumidityStatus` - a reading against its limit (`IsAboveThreshold`: at or above it).
+- `OutdoorClimateReading` - a location's current outdoor temperature and humidity (Open-Meteo).
 
 Planned:
 - Data warehouse entities for the star schema (Feature 7).

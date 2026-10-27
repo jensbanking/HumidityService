@@ -28,19 +28,15 @@ public sealed class OutdoorClimateIngestionService : IOutdoorClimateIngestionSer
     }
 
     /// <inheritdoc />
-    public async Task<OutdoorClimateReading?> IngestAsync(Location location, DateTimeOffset timestampUtc, CancellationToken cancellationToken)
+    public async Task<OutdoorClimateReading> IngestAsync(Location location, DateTimeOffset timestampUtc, CancellationToken cancellationToken)
     {
         var rawJson = await _openMeteoApiClient.GetOutdoorClimateAsync(location.Latitude, location.Longitude, cancellationToken);
         // ELT: the raw response is stored before anything is read from it.
         await _blobStorage.SaveLocationBlobAsync(location.Slug, LocationBlobType.Outdoor, timestampUtc, rawJson, cancellationToken);
 
-        var reading = OpenMeteoResponseParser.GetCurrentReading(rawJson);
-        if (reading is null)
-        {
-            _logger.LogWarning(
-                "Open-Meteo response for location {LocationSlug} has no current temperature or humidity; the outdoor reading is unavailable.",
-                location.Slug);
-        }
+        // Missing values count as a failed step, like a failed fetch, so the run shows it.
+        var reading = OpenMeteoResponseParser.GetCurrentReading(rawJson)
+            ?? throw new InvalidDataException($"Open-Meteo response for location '{location.Slug}' has no current temperature or humidity.");
 
         _logger.LogInformation("Outdoor climate reading ingested successfully for location {LocationSlug}.", location.Slug);
         return reading;

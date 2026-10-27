@@ -56,10 +56,10 @@ flowchart LR
 
 ## ELT Flow
 
-1. A timer-triggered Azure Function executes hourly and iterates over all configured locations.
-2. For each location, indoor climate data is retrieved from the Danfoss Ally API and outdoor climate data is retrieved from Open-Meteo. A failure for one location does not block processing of the others.
+1. A single timer-triggered Azure Function (`ClimateIngestion`) executes hourly and iterates over all configured locations. Every blob in the run uses the same UTC timestamp.
+2. For each location, outdoor climate data is first retrieved from Open-Meteo, then indoor climate data from the Danfoss Ally API. A failure for one location does not block processing of the others, and a failed outdoor fetch does not block the location's indoor ingestion or humidity alert.
 3. Raw JSON payloads are persisted to Azure Blob Storage under the hour they were captured (UTC): the account-wide Danfoss response once (`yyyy/MM/dd/HH/apiraw_….json`), and per location the raw Open-Meteo response, the raw Danfoss sub-devices response, and the location's own devices extracted from the account-wide response (`yyyy/MM/dd/HH/{location}/{outdoor|subdevices|indoor}_{location}_….json`).
-4. Right after the location's indoor extract is persisted, the humidity of every room with a humidity sensor is checked against its limit, and an email alert is sent for the location if any room is at or above it (see [Humidity Alerts](#humidity-alerts)).
+4. Right after the location's indoor extract is persisted, the humidity of every room with a humidity sensor is checked against its limit, and an email alert, including the outdoor reading, is sent for the location if any room is at or above it (see [Humidity Alerts](#humidity-alerts)).
 5. Processing services transform raw payloads into dimensional models, validating incoming payloads and routing corrupt or unparseable files to a dedicated `dead-letter` container.
 6. Fact and dimension records are synchronized into Azure SQL Database.
 7. Power BI consumes the dimensional model for reporting.
@@ -74,7 +74,7 @@ Every hour, right after a location's Danfoss Ally response has been persisted, t
 * **Room names:** per-room limits are keyed by the room's name in the Danfoss app (case-insensitive). If you rename a room there, update its key in `humidityThresholds` too.
 * **Recipients:** a configurable list of email addresses.
 * **Subject:** `Fugtigheds alarm fra {location}`, where `{location}` is the location's slug.
-* **Body:** the heading `Fugtighedsmålinger for {location} {date and time}` (Danish time, e.g. `26. Nov 2026 kl. 00:00`), then a table with the columns `Rum`, `Temp` and `Fugt %`, one row per room with a humidity sensor. Rows for rooms at or above their limit are shown in bold red.
+* **Body:** the heading `Fugtighedsmålinger for {location}` with the date and time on the next line (Danish time, e.g. `26. Nov 2026 kl. 00:00`), then the location's outdoor reading for the same hour from Open-Meteo (`Ude: 8,3 °C, 92 % fugt`, or `Ude: ikke tilgængelig` when it couldn't be fetched or lacks values - the email is sent either way), then a table with the columns `Rum`, `Temp` and `Fugt %`, one row per room with a humidity sensor. Rows for rooms at or above their limit are shown in bold red.
 * **Isolation:** a failed alert is logged and never affects the persisted data or the other locations.
 
 Configuration:
@@ -91,7 +91,10 @@ In Azure, recipients come from the GitHub Actions variable `HUMIDITY_ALERT_RECIP
 
 Example email body:
 
-> Fugtighedsmålinger for lyngby 26. Nov 2026 kl. 00:00
+> Fugtighedsmålinger for lyngby<br>
+> 26. Nov 2026 kl. 00:00
+>
+> Ude: 8,3 °C, 92 % fugt
 >
 > | Rum | Temp | Fugt % |
 > |---|--:|--:|

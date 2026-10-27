@@ -81,7 +81,7 @@ public class ClimateIngestionServiceTests
             _blobStorage.SaveApiRawAsync(Now, DevicesJson, Arg.Any<CancellationToken>());
             _blobStorage.SaveLocationBlobAsync("aarhus-house1", LocationBlobType.SubDevices, Now, House1SubDevicesJson, Arg.Any<CancellationToken>());
             _blobStorage.SaveLocationBlobAsync("aarhus-house1", LocationBlobType.Indoor, Now, House1Json, Arg.Any<CancellationToken>());
-            _humidityAlertService.CheckAndNotifyAsync(House1, House1Json, Arg.Any<OutdoorClimateReading?>(), Arg.Any<CancellationToken>());
+            _humidityAlertService.CheckAndNotifyAsync(House1, House1Json, Arg.Any<OutdoorClimateReading?>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
         });
     }
 
@@ -97,10 +97,10 @@ public class ClimateIngestionServiceTests
         {
             _outdoorIngestionService.IngestAsync(House1, Now, Arg.Any<CancellationToken>());
             _blobStorage.SaveLocationBlobAsync("aarhus-house1", LocationBlobType.Indoor, Now, House1Json, Arg.Any<CancellationToken>());
-            _humidityAlertService.CheckAndNotifyAsync(House1, House1Json, House1Outdoor, Arg.Any<CancellationToken>());
+            _humidityAlertService.CheckAndNotifyAsync(House1, House1Json, House1Outdoor, Now, Arg.Any<CancellationToken>());
             _outdoorIngestionService.IngestAsync(House2, Now, Arg.Any<CancellationToken>());
             _blobStorage.SaveLocationBlobAsync("odense-house2", LocationBlobType.Indoor, Now, House2Json, Arg.Any<CancellationToken>());
-            _humidityAlertService.CheckAndNotifyAsync(House2, House2Json, House2Outdoor, Arg.Any<CancellationToken>());
+            _humidityAlertService.CheckAndNotifyAsync(House2, House2Json, House2Outdoor, Now, Arg.Any<CancellationToken>());
         });
     }
 
@@ -119,6 +119,8 @@ public class ClimateIngestionServiceTests
         await _outdoorIngestionService.Received(1).IngestAsync(House2, runStart, Arg.Any<CancellationToken>());
         await _blobStorage.Received(1).SaveLocationBlobAsync("aarhus-house1", LocationBlobType.Indoor, runStart, House1Json, Arg.Any<CancellationToken>());
         await _blobStorage.Received(1).SaveLocationBlobAsync("odense-house2", LocationBlobType.Indoor, runStart, House2Json, Arg.Any<CancellationToken>());
+        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House1, House1Json, House1Outdoor, runStart, Arg.Any<CancellationToken>());
+        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House2, House2Json, House2Outdoor, runStart, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -128,26 +130,48 @@ public class ClimateIngestionServiceTests
         GivenDeviceList(DevicesJson);
         var outdoorFailure = new HttpRequestException("open-meteo down");
         _outdoorIngestionService.IngestAsync(House1, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
-            .Returns<OutdoorClimateReading?>(_ => throw outdoorFailure);
+            .Returns<OutdoorClimateReading>(_ => throw outdoorFailure);
 
         var exception = await Assert.ThrowsAsync<AggregateException>(() => CreateSut().IngestAsync(CancellationToken.None));
 
         Assert.Same(outdoorFailure, Assert.Single(exception.InnerExceptions));
         await _blobStorage.Received(1).SaveLocationBlobAsync("aarhus-house1", LocationBlobType.Indoor, Now, House1Json, Arg.Any<CancellationToken>());
-        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House1, House1Json, null, Arg.Any<CancellationToken>());
-        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House2, House2Json, House2Outdoor, Arg.Any<CancellationToken>());
+        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House1, House1Json, null, Now, Arg.Any<CancellationToken>());
+        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House2, House2Json, House2Outdoor, Now, Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task IngestAsync_OutdoorReadingUnavailable_AlertsWithoutItAndRunSucceeds()
+    public async Task IngestAsync_OutdoorTimesOut_StillIngestsIndoorAndAlertsAndOtherLocations()
     {
-        GivenLocations(House1);
+        GivenLocations(House1, House2);
         GivenDeviceList(DevicesJson);
-        _outdoorIngestionService.IngestAsync(House1, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>()).Returns((OutdoorClimateReading?)null);
+        // An HttpClient timeout surfaces as a TaskCanceledException although the run was not cancelled.
+        _outdoorIngestionService.IngestAsync(House1, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns<OutdoorClimateReading>(_ => throw new TaskCanceledException("timeout"));
 
-        await CreateSut().IngestAsync(CancellationToken.None);
+        await Assert.ThrowsAsync<AggregateException>(() => CreateSut().IngestAsync(CancellationToken.None));
 
-        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House1, House1Json, null, Arg.Any<CancellationToken>());
+        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House1, House1Json, null, Now, Arg.Any<CancellationToken>());
+        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House2, House2Json, House2Outdoor, Now, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task IngestAsync_RunCancelled_StopsWithoutProcessingFurtherLocations()
+    {
+        using var cancellation = new CancellationTokenSource();
+        GivenLocations(House1, House2);
+        GivenDeviceList(DevicesJson);
+        _outdoorIngestionService.IngestAsync(House1, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns<OutdoorClimateReading>(_ =>
+            {
+                cancellation.Cancel();
+                throw new OperationCanceledException(cancellation.Token);
+            });
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => CreateSut().IngestAsync(cancellation.Token));
+
+        await _outdoorIngestionService.DidNotReceive().IngestAsync(House2, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
+        await _humidityAlertService.DidNotReceive().CheckAndNotifyAsync(Arg.Any<Location>(), Arg.Any<string>(), Arg.Any<OutdoorClimateReading?>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -189,9 +213,9 @@ public class ClimateIngestionServiceTests
         await Assert.ThrowsAsync<AggregateException>(() => CreateSut().IngestAsync(CancellationToken.None));
 
         await _blobStorage.DidNotReceive().SaveLocationBlobAsync("aarhus-house1", Arg.Any<LocationBlobType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
-        await _humidityAlertService.DidNotReceive().CheckAndNotifyAsync(House1, Arg.Any<string>(), Arg.Any<OutdoorClimateReading?>(), Arg.Any<CancellationToken>());
+        await _humidityAlertService.DidNotReceive().CheckAndNotifyAsync(House1, Arg.Any<string>(), Arg.Any<OutdoorClimateReading?>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
         await _blobStorage.Received(1).SaveLocationBlobAsync("odense-house2", LocationBlobType.Indoor, Now, House2Json, Arg.Any<CancellationToken>());
-        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House2, House2Json, Arg.Any<OutdoorClimateReading?>(), Arg.Any<CancellationToken>());
+        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House2, House2Json, Arg.Any<OutdoorClimateReading?>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -204,9 +228,9 @@ public class ClimateIngestionServiceTests
 
         await Assert.ThrowsAsync<AggregateException>(() => CreateSut().IngestAsync(CancellationToken.None));
 
-        await _humidityAlertService.DidNotReceive().CheckAndNotifyAsync(House1, Arg.Any<string>(), Arg.Any<OutdoorClimateReading?>(), Arg.Any<CancellationToken>());
+        await _humidityAlertService.DidNotReceive().CheckAndNotifyAsync(House1, Arg.Any<string>(), Arg.Any<OutdoorClimateReading?>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
         await _blobStorage.Received(1).SaveLocationBlobAsync("odense-house2", LocationBlobType.Indoor, Now, House2Json, Arg.Any<CancellationToken>());
-        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House2, House2Json, Arg.Any<OutdoorClimateReading?>(), Arg.Any<CancellationToken>());
+        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House2, House2Json, Arg.Any<OutdoorClimateReading?>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -214,13 +238,13 @@ public class ClimateIngestionServiceTests
     {
         GivenLocations(House1, House2);
         GivenDeviceList(DevicesJson);
-        _humidityAlertService.CheckAndNotifyAsync(House1, Arg.Any<string>(), Arg.Any<OutdoorClimateReading?>(), Arg.Any<CancellationToken>())
+        _humidityAlertService.CheckAndNotifyAsync(House1, Arg.Any<string>(), Arg.Any<OutdoorClimateReading?>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
             .Returns<Task>(_ => throw new InvalidOperationException("email down"));
 
         await Assert.ThrowsAsync<AggregateException>(() => CreateSut().IngestAsync(CancellationToken.None));
 
         await _blobStorage.Received(1).SaveLocationBlobAsync("odense-house2", LocationBlobType.Indoor, Now, House2Json, Arg.Any<CancellationToken>());
-        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House2, House2Json, Arg.Any<OutdoorClimateReading?>(), Arg.Any<CancellationToken>());
+        await _humidityAlertService.Received(1).CheckAndNotifyAsync(House2, House2Json, Arg.Any<OutdoorClimateReading?>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -253,7 +277,7 @@ public class ClimateIngestionServiceTests
         await _climateApiClient.DidNotReceive().GetSubDevicesAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _outdoorIngestionService.DidNotReceive().IngestAsync(Arg.Any<Location>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
         await _blobStorage.DidNotReceive().SaveLocationBlobAsync(Arg.Any<string>(), Arg.Any<LocationBlobType>(), Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
-        await _humidityAlertService.DidNotReceive().CheckAndNotifyAsync(Arg.Any<Location>(), Arg.Any<string>(), Arg.Any<OutdoorClimateReading?>(), Arg.Any<CancellationToken>());
+        await _humidityAlertService.DidNotReceive().CheckAndNotifyAsync(Arg.Any<Location>(), Arg.Any<string>(), Arg.Any<OutdoorClimateReading?>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

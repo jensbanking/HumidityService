@@ -40,7 +40,7 @@ public static class HumidityAlertEmailBuilder
 
         var html = new StringBuilder()
             .Append("<html><body>")
-            .Append("<p>").Append(HtmlEscape(heading)).Append("<br>").Append(readingTime).Append("</p>")
+            .Append("<p>").Append(HtmlEscape(heading)).Append("<br>").Append(HtmlEscape(readingTime)).Append("</p>")
             .Append("<p>").Append(HtmlEscape(outdoorLine)).Append("</p>")
             .Append($"<table style=\"{TableStyle}\">")
             .Append($"<tr><th style=\"{HeaderStyle}\">Rum</th><th style=\"{HeaderStyle}\">Temp</th><th style=\"{HeaderStyle}\">Fugt %</th></tr>");

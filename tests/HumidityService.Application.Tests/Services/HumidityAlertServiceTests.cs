@@ -18,16 +18,10 @@ public class HumidityAlertServiceTests
 
     private readonly IHumidityAlertStateStore _stateStore = Substitute.For<IHumidityAlertStateStore>();
     private readonly IEmailSender _emailSender = Substitute.For<IEmailSender>();
-    private readonly TimeProvider _timeProvider = Substitute.For<TimeProvider>();
     private readonly ILogger<HumidityAlertService> _logger = Substitute.For<ILogger<HumidityAlertService>>();
 
-    public HumidityAlertServiceTests()
-    {
-        _timeProvider.GetUtcNow().Returns(NowUtc);
-    }
-
     private HumidityAlertService CreateSut(params string[] recipients) =>
-        new(new HumidityAlertSettings(75, recipients.Length == 0 ? ["alerts@example.com"] : recipients), _stateStore, _emailSender, _timeProvider, _logger);
+        new(new HumidityAlertSettings(75, recipients.Length == 0 ? ["alerts@example.com"] : recipients), _stateStore, _emailSender, _logger);
 
     private static Location CreateLocation(IReadOnlyDictionary<string, double>? thresholds = null) =>
         new("lyngby", "gw-1", 56.864, 9.951, thresholds);
@@ -47,7 +41,7 @@ public class HumidityAlertServiceTests
     [Fact]
     public async Task CheckAndNotifyAsync_AllRoomsBelowLimit_SendsNothing()
     {
-        await CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(("Stue", 214, 582), ("Kælder", 161, 749)), Outdoor, CancellationToken.None);
+        await CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(("Stue", 214, 582), ("Kælder", 161, 749)), Outdoor, NowUtc, CancellationToken.None);
 
         await _emailSender.DidNotReceive().SendAsync(Arg.Any<EmailMessage>(), Arg.Any<CancellationToken>());
         await _stateStore.DidNotReceive().GetLastSentDateAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -56,7 +50,7 @@ public class HumidityAlertServiceTests
     [Fact]
     public async Task CheckAndNotifyAsync_RoomAtDefaultLimit_SendsEmailWithAllRoomsAndRecordsDate()
     {
-        await CreateSut("a@example.com", "b@example.com").CheckAndNotifyAsync(CreateLocation(), Devices(("Stue", 214, 582), ("Kælder", 161, 750)), Outdoor, CancellationToken.None);
+        await CreateSut("a@example.com", "b@example.com").CheckAndNotifyAsync(CreateLocation(), Devices(("Stue", 214, 582), ("Kælder", 161, 750)), Outdoor, NowUtc, CancellationToken.None);
 
         await _emailSender.Received(1).SendAsync(
             Arg.Is<EmailMessage>(m =>
@@ -72,7 +66,7 @@ public class HumidityAlertServiceTests
     [Fact]
     public async Task CheckAndNotifyAsync_EmailShowsOutdoorReading()
     {
-        await CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(("Kælder", 161, 815)), Outdoor, CancellationToken.None);
+        await CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(("Kælder", 161, 815)), Outdoor, NowUtc, CancellationToken.None);
 
         await _emailSender.Received(1).SendAsync(
             Arg.Is<EmailMessage>(m => m.PlainTextBody.Contains("Ude: 8,3 °C, 92 % fugt") && m.HtmlBody.Contains("Ude: 8,3 °C, 92 % fugt")),
@@ -82,7 +76,7 @@ public class HumidityAlertServiceTests
     [Fact]
     public async Task CheckAndNotifyAsync_NoOutdoorReading_StillSendsEmailSayingNotAvailable()
     {
-        await CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(("Kælder", 161, 815)), null, CancellationToken.None);
+        await CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(("Kælder", 161, 815)), null, NowUtc, CancellationToken.None);
 
         await _emailSender.Received(1).SendAsync(
             Arg.Is<EmailMessage>(m => m.PlainTextBody.Contains("Ude: ikke tilgængelig")),
@@ -95,7 +89,7 @@ public class HumidityAlertServiceTests
     {
         var location = CreateLocation(new Dictionary<string, double> { ["kÆLDER"] = 85 });
 
-        await CreateSut().CheckAndNotifyAsync(location, Devices(("Stue", 214, 582), ("Kælder", 161, 815)), Outdoor, CancellationToken.None);
+        await CreateSut().CheckAndNotifyAsync(location, Devices(("Stue", 214, 582), ("Kælder", 161, 815)), Outdoor, NowUtc, CancellationToken.None);
 
         await _emailSender.DidNotReceive().SendAsync(Arg.Any<EmailMessage>(), Arg.Any<CancellationToken>());
     }
@@ -105,7 +99,7 @@ public class HumidityAlertServiceTests
     {
         var location = CreateLocation(new Dictionary<string, double> { ["Stue"] = 55 });
 
-        await CreateSut().CheckAndNotifyAsync(location, Devices(("Stue", 214, 582)), Outdoor, CancellationToken.None);
+        await CreateSut().CheckAndNotifyAsync(location, Devices(("Stue", 214, 582)), Outdoor, NowUtc, CancellationToken.None);
 
         await _emailSender.Received(1).SendAsync(Arg.Is<EmailMessage>(m => IsMarkedAbove(m, "Stue")), Arg.Any<CancellationToken>());
     }
@@ -115,7 +109,7 @@ public class HumidityAlertServiceTests
     {
         var location = CreateLocation(new Dictionary<string, double> { [" Badeværelset  "] = 80 });
 
-        await CreateSut().CheckAndNotifyAsync(location, Devices(("Badeværelset ", 136, 790)), Outdoor, CancellationToken.None);
+        await CreateSut().CheckAndNotifyAsync(location, Devices(("Badeværelset ", 136, 790)), Outdoor, NowUtc, CancellationToken.None);
 
         await _emailSender.DidNotReceive().SendAsync(Arg.Any<EmailMessage>(), Arg.Any<CancellationToken>());
         _logger.DidNotReceive().Log(LogLevel.Warning, Arg.Any<EventId>(), Arg.Any<object>(), Arg.Any<Exception?>(), Arg.Any<Func<object, Exception?, string>>());
@@ -126,7 +120,7 @@ public class HumidityAlertServiceTests
     {
         _stateStore.GetLastSentDateAsync("lyngby", Arg.Any<CancellationToken>()).Returns(TodayCopenhagen);
 
-        await CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(("Kælder", 161, 815)), Outdoor, CancellationToken.None);
+        await CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(("Kælder", 161, 815)), Outdoor, NowUtc, CancellationToken.None);
 
         await _emailSender.DidNotReceive().SendAsync(Arg.Any<EmailMessage>(), Arg.Any<CancellationToken>());
         await _stateStore.DidNotReceive().SetLastSentDateAsync(Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
@@ -137,7 +131,7 @@ public class HumidityAlertServiceTests
     {
         _stateStore.GetLastSentDateAsync("lyngby", Arg.Any<CancellationToken>()).Returns(TodayCopenhagen.AddDays(-1));
 
-        await CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(("Kælder", 161, 815)), Outdoor, CancellationToken.None);
+        await CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(("Kælder", 161, 815)), Outdoor, NowUtc, CancellationToken.None);
 
         await _emailSender.Received(1).SendAsync(Arg.Any<EmailMessage>(), Arg.Any<CancellationToken>());
         await _stateStore.Received(1).SetLastSentDateAsync("lyngby", TodayCopenhagen, Arg.Any<CancellationToken>());
@@ -146,9 +140,9 @@ public class HumidityAlertServiceTests
     [Fact]
     public async Task CheckAndNotifyAsync_NoRecipients_SendsNothing()
     {
-        var sut = new HumidityAlertService(new HumidityAlertSettings(75, []), _stateStore, _emailSender, _timeProvider, _logger);
+        var sut = new HumidityAlertService(new HumidityAlertSettings(75, []), _stateStore, _emailSender, _logger);
 
-        await sut.CheckAndNotifyAsync(CreateLocation(), Devices(("Kælder", 161, 815)), Outdoor, CancellationToken.None);
+        await sut.CheckAndNotifyAsync(CreateLocation(), Devices(("Kælder", 161, 815)), Outdoor, NowUtc, CancellationToken.None);
 
         await _emailSender.DidNotReceive().SendAsync(Arg.Any<EmailMessage>(), Arg.Any<CancellationToken>());
     }
@@ -156,7 +150,7 @@ public class HumidityAlertServiceTests
     [Fact]
     public async Task CheckAndNotifyAsync_NoRoomsWithHumiditySensor_SendsNothing()
     {
-        await CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(), Outdoor, CancellationToken.None);
+        await CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(), Outdoor, NowUtc, CancellationToken.None);
 
         await _emailSender.DidNotReceive().SendAsync(Arg.Any<EmailMessage>(), Arg.Any<CancellationToken>());
     }
@@ -168,7 +162,7 @@ public class HumidityAlertServiceTests
             .Returns<Task>(_ => throw new InvalidOperationException("acs down"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(("Kælder", 161, 815)), Outdoor, CancellationToken.None));
+            CreateSut().CheckAndNotifyAsync(CreateLocation(), Devices(("Kælder", 161, 815)), Outdoor, NowUtc, CancellationToken.None));
 
         await _stateStore.DidNotReceive().SetLastSentDateAsync(Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
     }
@@ -178,7 +172,7 @@ public class HumidityAlertServiceTests
     {
         var location = CreateLocation(new Dictionary<string, double> { ["Gammelt navn"] = 90 });
 
-        await CreateSut().CheckAndNotifyAsync(location, Devices(("Kælder", 161, 815)), Outdoor, CancellationToken.None);
+        await CreateSut().CheckAndNotifyAsync(location, Devices(("Kælder", 161, 815)), Outdoor, NowUtc, CancellationToken.None);
 
         _logger.Received().Log(LogLevel.Warning, Arg.Any<EventId>(), Arg.Any<object>(), Arg.Any<Exception?>(), Arg.Any<Func<object, Exception?, string>>());
         await _emailSender.Received(1).SendAsync(Arg.Any<EmailMessage>(), Arg.Any<CancellationToken>());

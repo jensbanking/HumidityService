@@ -57,7 +57,7 @@ public sealed class ClimateIngestionService : IClimateIngestionService
         {
             accessToken = await _authClient.GetAccessTokenAsync(cancellationToken);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             _logger.LogError(ex, "Failed to obtain a Danfoss OAuth access token; aborting climate ingestion.");
             throw;
@@ -70,7 +70,7 @@ public sealed class ClimateIngestionService : IClimateIngestionService
             rawJson = await _climateApiClient.GetAllDevicesAsync(accessToken, cancellationToken);
             deviceIds = DanfossDeviceListParser.GetDeviceIds(rawJson);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             _logger.LogError(ex, "Failed to fetch or parse the Danfoss device list; aborting climate ingestion.");
             throw;
@@ -84,7 +84,7 @@ public sealed class ClimateIngestionService : IClimateIngestionService
         {
             await _blobStorage.SaveApiRawAsync(timestampUtc, rawJson, cancellationToken);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             _logger.LogError(ex, "Failed to save the raw Danfoss device list; aborting climate ingestion.");
             throw;
@@ -92,6 +92,8 @@ public sealed class ClimateIngestionService : IClimateIngestionService
 
         WarnAboutUnconfiguredGateways(rawJson, locations);
 
+        // Failures are caught unless the run itself was cancelled: an HttpClient timeout surfaces as a
+        // TaskCanceledException too, and must not stop the other steps and locations.
         var failures = new List<Exception>();
         foreach (var location in locations)
         {
@@ -101,7 +103,7 @@ public sealed class ClimateIngestionService : IClimateIngestionService
             {
                 outdoorReading = await _outdoorIngestionService.IngestAsync(location, timestampUtc, cancellationToken);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
                 _logger.LogError(ex, "Failed to ingest the outdoor climate reading for location {LocationSlug}; continuing without it.", location.Slug);
                 failures.Add(ex);
@@ -125,7 +127,7 @@ public sealed class ClimateIngestionService : IClimateIngestionService
 
                 _logger.LogInformation("Indoor climate reading ingested successfully for location {LocationSlug}.", location.Slug);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
                 _logger.LogError(ex, "Failed to ingest the indoor climate reading for location {LocationSlug}.", location.Slug);
                 failures.Add(ex);
@@ -134,9 +136,9 @@ public sealed class ClimateIngestionService : IClimateIngestionService
 
             try
             {
-                await _humidityAlertService.CheckAndNotifyAsync(location, locationJson, outdoorReading, cancellationToken);
+                await _humidityAlertService.CheckAndNotifyAsync(location, locationJson, outdoorReading, timestampUtc, cancellationToken);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
                 _logger.LogError(ex, "Humidity alert check failed for location {LocationSlug}.", location.Slug);
                 failures.Add(ex);

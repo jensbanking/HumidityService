@@ -34,19 +34,15 @@ public class OutdoorClimateIngestionServiceTests
     }
 
     [Fact]
-    public async Task IngestAsync_ValuesMissing_SavesRawResponseAndReturnsNullWithWarning()
+    public async Task IngestAsync_ValuesMissing_SavesRawResponseThenThrows()
     {
         const string json = "{\"current\":{\"temperature_2m\":null,\"relative_humidity_2m\":92}}";
         _openMeteoApiClient.GetOutdoorClimateAsync(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<CancellationToken>()).Returns(json);
 
-        var reading = await CreateSut().IngestAsync(House1, Now, CancellationToken.None);
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() => CreateSut().IngestAsync(House1, Now, CancellationToken.None));
 
-        Assert.Null(reading);
+        Assert.Contains("aarhus-house1", exception.Message);
         await _blobStorage.Received(1).SaveLocationBlobAsync("aarhus-house1", LocationBlobType.Outdoor, Now, json, Arg.Any<CancellationToken>());
-        Assert.Contains(_logger.ReceivedCalls(), call =>
-            call.GetMethodInfo().Name == nameof(ILogger.Log) &&
-            (LogLevel)call.GetArguments()[0]! == LogLevel.Warning &&
-            call.GetArguments()[2]!.ToString()!.Contains("aarhus-house1"));
     }
 
     [Fact]

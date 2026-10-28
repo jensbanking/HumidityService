@@ -23,17 +23,7 @@ module "environment" {
 
   humidity_alert_recipients = var.humidity_alert_recipients
 
-  locations = [
-    {
-      slug             = "lyngby"
-      danfossGatewayId = "bfc446bebf1c46ce49vzaq"
-      latitude         = 56.864
-      longitude        = 9.951
-      humidityThresholds = {
-        "Kælder" = 75
-      }
-    },
-  ]
+  locations = var.locations
 
   tags = {
     project     = "HumidityService"

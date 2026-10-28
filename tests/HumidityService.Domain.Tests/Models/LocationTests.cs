@@ -54,7 +54,7 @@ public class LocationTests
     [InlineData("lyngby", "", "'danfossGatewayId'")]
     public void Validate_MissingRequiredValue_ReportsIt(string? slug, string? gatewayId, string expectedField)
     {
-        var errors = new Location(slug!, gatewayId!, 56.864, 9.951).Validate();
+        var errors = new Location(slug!, gatewayId!, 56.1629, 10.2039).Validate();
 
         Assert.Contains(errors, e => e.Contains(expectedField));
     }
@@ -79,5 +79,5 @@ public class LocationTests
     }
 
     private static Location CreateLocation(IReadOnlyDictionary<string, double>? thresholds) =>
-        new("lyngby", "gw-1", 56.864, 9.951, thresholds);
+        new("lyngby", "gw-1", 56.1629, 10.2039, thresholds);
 }

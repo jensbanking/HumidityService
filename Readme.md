@@ -87,7 +87,7 @@ Configuration:
 | `CommunicationServices__Endpoint` | ACS endpoint, used with Managed Identity (set by Terraform) |
 | `humidityThresholds` in `Locations` | Optional per-room limits, e.g. `{"Kælder":85}` |
 
-In Azure, recipients come from the GitHub Actions variable `HUMIDITY_ALERT_RECIPIENTS` (e.g. `["you@example.com"]`) so addresses stay out of source control. The date of the last alert per location is stored as `alert-state/humidity-alert/{location}.txt`.
+In Azure, recipients come from the GitHub Actions variable `HUMIDITY_ALERT_RECIPIENTS` (e.g. `["you@example.com"]`) and locations from the GitHub Actions secret `LOCATIONS` (see `terraform/README.md`), so addresses, gateway ids and home coordinates stay out of source control. The date of the last alert per location is stored as `alert-state/humidity-alert/{location}.txt`.
 
 Example email body:
 

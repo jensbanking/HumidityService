@@ -24,7 +24,7 @@ public class HumidityAlertServiceTests
         new(new HumidityAlertSettings(75, recipients.Length == 0 ? ["alerts@example.com"] : recipients), _stateStore, _emailSender, _logger);
 
     private static Location CreateLocation(IReadOnlyDictionary<string, double>? thresholds = null) =>
-        new("lyngby", "gw-1", 56.864, 9.951, thresholds);
+        new("lyngby", "gw-1", 56.1629, 10.2039, thresholds);
 
     // humidity/temperature are scaled by 10 as in the real Danfoss response.
     private static string Devices(params (string Name, int Temp, int Humidity)[] rooms) =>

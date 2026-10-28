@@ -69,7 +69,7 @@ public class ConfigurationLocationProviderTests
     {
         var configuration = Substitute.For<IConfiguration>();
         configuration["Locations"].Returns(
-            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.864,\"longitude\":9.951,\"humidityThresholds\":{\"Kælder\":85}}]");
+            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.1629,\"longitude\":10.2039,\"humidityThresholds\":{\"Kælder\":85}}]");
 
         var location = Assert.Single(new ConfigurationLocationProvider(configuration).GetLocations());
 
@@ -82,7 +82,7 @@ public class ConfigurationLocationProviderTests
     {
         var configuration = Substitute.For<IConfiguration>();
         configuration["Locations"].Returns(
-            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.864,\"longitude\":9.951,\"humidityThresholds\":null}]");
+            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.1629,\"longitude\":10.2039,\"humidityThresholds\":null}]");
 
         Assert.Null(Assert.Single(new ConfigurationLocationProvider(configuration).GetLocations()).HumidityThresholds);
     }
@@ -94,7 +94,7 @@ public class ConfigurationLocationProviderTests
     {
         var configuration = Substitute.For<IConfiguration>();
         configuration["Locations"].Returns(
-            $"[{{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.864,\"longitude\":9.951,\"humidityThresholds\":{{\"Kælder\":{limit}}}}}]");
+            $"[{{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.1629,\"longitude\":10.2039,\"humidityThresholds\":{{\"Kælder\":{limit}}}}}]");
 
         Assert.Throws<InvalidOperationException>(() => new ConfigurationLocationProvider(configuration));
     }
@@ -115,7 +115,7 @@ public class ConfigurationLocationProviderTests
     {
         var configuration = Substitute.For<IConfiguration>();
         configuration["Locations"].Returns(
-            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.864,\"longitude\":9.951,\"humidityThresholds\":{\"Kælder\":75,\"kælder\":80}}]");
+            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.1629,\"longitude\":10.2039,\"humidityThresholds\":{\"Kælder\":75,\"kælder\":80}}]");
 
         var exception = Assert.Throws<InvalidOperationException>(() => new ConfigurationLocationProvider(configuration));
 
@@ -128,7 +128,7 @@ public class ConfigurationLocationProviderTests
     {
         var configuration = Substitute.For<IConfiguration>();
         configuration["Locations"].Returns(
-            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.864,\"longitude\":9.951},{\"danfossGatewayId\":\"gw-2\",\"latitude\":56.864,\"longitude\":9.951}]");
+            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.1629,\"longitude\":10.2039},{\"danfossGatewayId\":\"gw-2\",\"latitude\":56.1629,\"longitude\":10.2039}]");
 
         var exception = Assert.Throws<InvalidOperationException>(() => new ConfigurationLocationProvider(configuration));
 

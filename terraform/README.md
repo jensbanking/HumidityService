@@ -42,9 +42,11 @@ Two layers:
    first `terraform init` for an environment. The same role is required for the CI service
    principal - see "CI/CD authentication" below.
 
-   Each environment's `main.tf` holds its static `locations` list (`slug`, `danfossGatewayId`,
-   `latitude`, `longitude`, optional `humidityThresholds`). Edit it there to add or change
-   locations.
+   Each environment's static `locations` list (`slug`, `danfossGatewayId`, `latitude`,
+   `longitude`, optional `humidityThresholds`) is the `locations` variable, kept out of source
+   control because it holds gateway ids and home coordinates: locally in the gitignored
+   `terraform.tfvars` (see `terraform.tfvars.example`), in CI from the `LOCATIONS` secret. Change
+   locations there.
 
 3. After `apply`, follow `modules/sql/README.md` to grant the Function App's managed identity a
    contained database user (skipped by default - `manage_database_user = false` - since it needs
@@ -117,7 +119,11 @@ Setup per environment:
    Add environment variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (plain
    variables, not secrets - OIDC means there's no password to protect), and optionally
    `HUMIDITY_ALERT_RECIPIENTS` as a JSON list (e.g. `["you@example.com"]`) - left unset, humidity
-   alerts are evaluated and logged but no email is sent.
+   alerts are evaluated and logged but no email is sent. Add the environment secret `LOCATIONS`
+   with the environment's locations as a JSON list, e.g.
+   `[{"slug":"aarhus-house1","danfossGatewayId":"<gateway id>","latitude":56.1629,"longitude":10.2039,"humidityThresholds":{"Kælder":85}}]`.
+   It's a secret rather than a variable because variable values are printed in the job log; the
+   deploy fails early if it's missing.
 5. Workflow jobs need `permissions: id-token: write` and use `azure/login@v2` with those three
    variables.
 

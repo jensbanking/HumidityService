@@ -77,6 +77,9 @@ jobs:
       TF_VAR_danfoss_client_id: ${{ secrets.DANFOSS_CLIENT_ID }}
       TF_VAR_danfoss_client_secret: ${{ secrets.DANFOSS_CLIENT_SECRET }}
       TF_VAR_humidity_alert_recipients: ${{ vars.HUMIDITY_ALERT_RECIPIENTS || '[]' }}
+      # A secret, not a variable: variable values are printed in the job log, and this holds the
+      # gateway ids and home coordinates.
+      TF_VAR_locations: ${{ secrets.LOCATIONS }}
     outputs:
       resource_group_name: ${{ steps.tf-outputs.outputs.resource_group_name }}
       function_app_name: ${{ steps.tf-outputs.outputs.function_app_name }}
@@ -86,6 +89,13 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Check locations are configured
+        run: |
+          if [ -z "$TF_VAR_locations" ]; then
+            echo "::error::The LOCATIONS secret is not set on the development environment (JSON list of locations, see terraform/README.md)."
+            exit 1
+          fi
 
       - name: Terraform init
         run: >

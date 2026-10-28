@@ -40,3 +40,16 @@ variable "danfoss_client_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "locations" {
+  description = "Locations for this environment (see CLAUDE.md Location Configuration). Supply via TF_VAR_locations (JSON list) or the gitignored terraform.tfvars, so gateway ids and home coordinates stay out of source control."
+  type = list(object({
+    slug             = string
+    danfossGatewayId = string
+    latitude         = number
+    longitude        = number
+    # Per-room humidity alert limits keyed by Danfoss room name, overriding the global default.
+    humidityThresholds = optional(map(number))
+  }))
+  sensitive = true
+}

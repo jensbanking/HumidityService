@@ -13,3 +13,16 @@ sql_aad_admin_object_id  = "00000000-0000-0000-0000-000000000000"
 # Do NOT put danfoss_client_id / danfoss_client_secret here even in a local, gitignored file.
 # Supply them as TF_VAR_danfoss_client_id / TF_VAR_danfoss_client_secret environment variables
 # at apply time instead (e.g. from a CI secret store or a local password manager).
+
+# Locations (gitignored here; in CI they come from the LOCATIONS secret as JSON).
+locations = [
+  {
+    slug             = "aarhus-house1"
+    danfossGatewayId = "<gateway id from /ally/devices>"
+    latitude         = 56.1629
+    longitude        = 10.2039
+    humidityThresholds = {
+      "Kælder" = 85
+    }
+  },
+]

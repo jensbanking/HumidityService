@@ -128,7 +128,7 @@ A feature may only be marked `[x]` after the `definition-of-done` skill (`.claud
 * An alert failure is logged and never affects persisted data or the other locations.
 * Managed Identity to ACS, Polly retry on send; Terraform provisions ACS, its email domain and the `HumidityAlert__*` / `CommunicationServices__Endpoint` app settings.
 
-### - [ ] Feature 6: Outdoor Climate in Humidity Alert Emails
+### - [x] Feature 6: Outdoor Climate in Humidity Alert Emails
 * Add the location's outdoor reading for the same hour (Open-Meteo `temperature_2m` and `relative_humidity_2m`) to the humidity alert email (Feature 5).
 * Show it as one line above the room table, in the same Danish number format as the table: `Ude: 8,3 °C, 92 % fugt`. When no outdoor reading is available, show `Ude: ikke tilgængelig`. The plain-text body gets the same line.
 * Move the Danish date and time from the end of the body's first line to its own second line: `Fugtighedsmålinger for {location}`, then `{Danish date and time}`.

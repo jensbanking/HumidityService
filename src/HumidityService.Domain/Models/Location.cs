@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace HumidityService.Domain.Models;
 
 /// <summary>
@@ -5,7 +7,9 @@ namespace HumidityService.Domain.Models;
 /// climate readings are collected for. The same <see cref="Slug"/> is used for both
 /// indoor and outdoor blob naming so readings for a location can be correlated.
 /// </summary>
-/// <param name="Slug">URL/path-safe identifier (lowercase, no spaces), e.g. "aarhus-house1".</param>
+/// <param name="Slug">
+/// URL/path-safe identifier: lowercase letters a-z, digits and single hyphens between them, e.g. "aarhus-house1".
+/// </param>
 /// <param name="DanfossGatewayId">Device id of the location's Danfoss Ally gateway, as listed in the <c>/ally/devices</c> response.</param>
 /// <param name="Latitude">Latitude used for the Open-Meteo outdoor query.</param>
 /// <param name="Longitude">Longitude used for the Open-Meteo outdoor query.</param>
@@ -20,6 +24,9 @@ public sealed record Location(
     double Longitude,
     IReadOnlyDictionary<string, double>? HumidityThresholds = null)
 {
+    // The slug is a blob path segment and part of file names, so it is kept to a-z, 0-9 and inner hyphens.
+    private static readonly Regex SlugPattern = new("^[a-z0-9]+(-[a-z0-9]+)*$", RegexOptions.CultureInvariant);
+
     /// <summary>
     /// Returns the humidity limit for a room: its entry in <see cref="HumidityThresholds"/> if there
     /// is one, otherwise <paramref name="defaultThreshold"/>. Room names match case-insensitively and
@@ -47,8 +54,9 @@ public sealed record Location(
         string.Equals(first.Trim(), second.Trim(), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Checks the location against the configuration rules: a slug and gateway id are required, and
-    /// every humidity limit must be valid (<see cref="HumidityThreshold.IsValid"/>) and set at most once per room.
+    /// Checks the location against the configuration rules: a slug in the <see cref="Slug"/> format and a
+    /// gateway id are required, latitude and longitude must be valid coordinates, and every humidity limit must
+    /// be valid (<see cref="HumidityThreshold.IsValid"/>) and set at most once per room.
     /// </summary>
     /// <returns>A description of each broken rule; empty when the location is valid.</returns>
     public IReadOnlyList<string> Validate()
@@ -60,10 +68,24 @@ public sealed record Location(
         {
             errors.Add("'slug' is required.");
         }
+        else if (!SlugPattern.IsMatch(Slug))
+        {
+            errors.Add($"'slug' '{Slug}' may only contain lowercase letters a-z, digits and single hyphens between them (e.g. 'aarhus-house1').");
+        }
 
         if (string.IsNullOrWhiteSpace(DanfossGatewayId))
         {
             errors.Add("'danfossGatewayId' is required.");
+        }
+
+        if (!double.IsFinite(Latitude) || Latitude is < -90 or > 90)
+        {
+            errors.Add($"'latitude' {Latitude} must be between -90 and 90.");
+        }
+
+        if (!double.IsFinite(Longitude) || Longitude is < -180 or > 180)
+        {
+            errors.Add($"'longitude' {Longitude} must be between -180 and 180.");
         }
 
         var roomNames = new List<string>();
@@ -84,4 +106,30 @@ public sealed record Location(
 
         return errors;
     }
+
+    /// <summary>
+    /// Checks the rules that span all configured locations: no two locations may share a slug (it names
+    /// their blobs) or a Danfoss gateway (it would ingest the same house twice).
+    /// </summary>
+    /// <param name="locations">Every configured location.</param>
+    /// <returns>A description of each broken rule; empty when the locations are valid together.</returns>
+    public static IReadOnlyList<string> ValidateAll(IReadOnlyList<Location> locations)
+    {
+        var errors = new List<string>();
+
+        foreach (var slug in Duplicates(locations.Select(l => l.Slug)))
+        {
+            errors.Add($"Slug '{slug}' is used by more than one location.");
+        }
+
+        foreach (var gatewayId in Duplicates(locations.Select(l => l.DanfossGatewayId)))
+        {
+            errors.Add($"Danfoss gateway '{gatewayId}' is used by more than one location.");
+        }
+
+        return errors;
+    }
+
+    private static IEnumerable<string> Duplicates(IEnumerable<string> values) =>
+        values.GroupBy(v => v, StringComparer.Ordinal).Where(g => g.Count() > 1).Select(g => g.Key);
 }

@@ -134,4 +134,41 @@ public class ConfigurationLocationProviderTests
 
         Assert.Contains("#2", exception.Message);
     }
+
+    [Fact]
+    public void Constructor_SlugNotInFormat_ThrowsNamingTheLocation()
+    {
+        var configuration = Substitute.For<IConfiguration>();
+        configuration["Locations"].Returns(
+            "[{\"slug\":\"Aarhus House1\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.1629,\"longitude\":10.2039}]");
+
+        var exception = Assert.Throws<InvalidOperationException>(() => new ConfigurationLocationProvider(configuration));
+
+        Assert.Contains("'Aarhus House1'", exception.Message);
+    }
+
+    [Fact]
+    public void Constructor_LatitudeOutOfRange_Throws()
+    {
+        var configuration = Substitute.For<IConfiguration>();
+        configuration["Locations"].Returns(
+            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":156.1629,\"longitude\":10.2039}]");
+
+        var exception = Assert.Throws<InvalidOperationException>(() => new ConfigurationLocationProvider(configuration));
+
+        Assert.Contains("'latitude'", exception.Message);
+    }
+
+    [Fact]
+    public void Constructor_DuplicateSlug_Throws()
+    {
+        var configuration = Substitute.For<IConfiguration>();
+        configuration["Locations"].Returns(
+            "[{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-1\",\"latitude\":56.1629,\"longitude\":10.2039}," +
+            "{\"slug\":\"lyngby\",\"danfossGatewayId\":\"gw-2\",\"latitude\":56.1629,\"longitude\":10.2039}]");
+
+        var exception = Assert.Throws<InvalidOperationException>(() => new ConfigurationLocationProvider(configuration));
+
+        Assert.Contains("Slug 'lyngby' is used by more than one location", exception.Message);
+    }
 }

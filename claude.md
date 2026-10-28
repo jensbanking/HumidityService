@@ -48,9 +48,9 @@
 
 - A single deployed environment supports **multiple locations** (e.g., multiple houses/devices), configured statically per environment — no dynamic discovery from the Danfoss API and no runtime location resolution.
 - Each location is defined as a static config entry containing:
-  - `slug` — a URL/path-safe identifier (lowercase, no spaces, e.g. `aarhus-house1`), used identically for both indoor and outdoor naming so readings can be correlated.
-  - `danfossGatewayId` — the Danfoss Ally gateway ID (from the `/ally/devices` response) identifying the location's house.
-  - `latitude` / `longitude` — the coordinate pair used for the Open-Meteo outdoor query.
+  - `slug` — a URL/path-safe identifier of lowercase letters `a-z`, digits and single hyphens between them (no spaces, `/`, `_` or `æøå`; e.g. `aarhus-house1`), unique across locations, used identically for both indoor and outdoor naming so readings can be correlated.
+  - `danfossGatewayId` — the Danfoss Ally gateway ID (from the `/ally/devices` response) identifying the location's house; no two locations may share a gateway.
+  - `latitude` / `longitude` — the coordinate pair used for the Open-Meteo outdoor query (latitude -90..90, longitude -180..180).
   - `humidityThresholds` (optional) — per-room humidity alert limits keyed by room name, overriding the global default (see Feature 5).
 - The full set of locations is stored as a list (e.g., a JSON app setting, config file, or small config table) rather than as individual scalar environment variables, since cardinality is >1 per environment.
 - Indoor and outdoor ingestion (Features 1 & 2) iterate over this list on every run, producing one blob per location per run for each of indoor/outdoor (plus the account-wide raw Danfoss response once per run). Danfoss gateways on the account that aren't configured are only logged, never processed.

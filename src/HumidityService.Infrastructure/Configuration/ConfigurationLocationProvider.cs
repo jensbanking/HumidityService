@@ -16,7 +16,10 @@ public sealed class ConfigurationLocationProvider : ILocationProvider
     private readonly IReadOnlyList<Location> _locations;
 
     /// <summary>Parses and validates the "Locations" configuration value.</summary>
-    /// <exception cref="InvalidOperationException">The value is missing, malformed, or contains an incomplete location.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The value is missing or malformed, a location breaks the rules in <see cref="Location.Validate"/>, or the
+    /// locations break the rules in <see cref="Location.ValidateAll"/> (e.g. a duplicate slug).
+    /// </exception>
     public ConfigurationLocationProvider(IConfiguration configuration)
     {
         var rawValue = configuration["Locations"];
@@ -48,6 +51,12 @@ public sealed class ConfigurationLocationProvider : ILocationProvider
                 var name = string.IsNullOrWhiteSpace(parsed[i].Slug) ? $"#{i + 1}" : $"'{parsed[i].Slug}'";
                 throw new InvalidOperationException($"Configured location {name} is invalid: {string.Join(" ", errors)}");
             }
+        }
+
+        var setErrors = Location.ValidateAll(parsed);
+        if (setErrors.Count > 0)
+        {
+            throw new InvalidOperationException($"Configured locations are invalid: {string.Join(" ", setErrors)}");
         }
 
         _locations = parsed;
